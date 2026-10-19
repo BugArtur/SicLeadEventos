@@ -131,10 +131,10 @@ function setF_(range, f) {
   else props.setProperty('FORMULA_SEP', ',');
 }
 
-function ensureResumo_(ss) {
+function ensureResumo_(ss, rebuild) {
   var sh = ss.getSheetByName('Resumo');
-  if (sh) return;
-  sh = ss.insertSheet('Resumo');
+  if (sh && !rebuild) return;
+  if (sh) sh.clear(); else sh = ss.insertSheet('Resumo');
   var rows = [['Resumo do evento', '']], forms = [['']];
   function block(title, labels, f) {
     rows.push(['', '']); forms.push(['']);
@@ -152,18 +152,18 @@ function ensureResumo_(ss) {
   sh.setColumnWidth(1, 300);
 }
 
-/** Rode UMA vez se a planilha mostrar #ERROR! nas colunas calculadas (Prêmios, Mensagens, Resumo). Não mexe em leads nem em regras. */
+/** Corrige as colunas calculadas (Prêmios, Mensagens, Resumo) se a planilha mostrar #ERROR!. Não mexe em leads nem em regras.
+    Pode ser rodada pelo editor ou pelo App da Web (ação fixFormulas, com login do painel). Cada aba é tratada à parte. */
 function corrigirFormulas() {
   PropertiesService.getScriptProperties().deleteProperty('FORMULA_SEP'); // detecta de novo o separador desta planilha
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var pr = ss.getSheetByName('Prêmios'), n = pr.getLastRow() - 1;
-  if (n > 0) writePrizeFormulas_(pr, n);
-  var ms = ss.getSheetByName('Mensagens'), m = ms.getLastRow() - 1;
-  if (m > 0) writeMessageFormulas_(ms, m);
-  var rs = ss.getSheetByName('Resumo');
-  if (rs) ss.deleteSheet(rs);
-  ensureResumo_(ss);
-  Logger.log('Fórmulas corrigidas em Prêmios (' + n + ' linhas), Mensagens (' + m + ' linhas) e Resumo. Separador: ' + PropertiesService.getScriptProperties().getProperty('FORMULA_SEP'));
+  var ss = SpreadsheetApp.getActiveSpreadsheet(), log = [];
+  function step(name, fn) { try { log.push(name + ': ' + fn()); } catch (err) { log.push(name + ': ERRO ' + (err && err.message || err)); } }
+  step('Prêmios', function () { var sh = ss.getSheetByName('Prêmios'), n = sh.getLastRow() - 1; if (n > 0) writePrizeFormulas_(sh, n); return n + ' linhas'; });
+  step('Mensagens', function () { var sh = ss.getSheetByName('Mensagens'), n = sh.getLastRow() - 1; if (n > 0) writeMessageFormulas_(sh, n); return n + ' linhas'; });
+  step('Resumo', function () { ensureResumo_(ss, true); return 'refeito'; });
+  log.push('Separador: ' + PropertiesService.getScriptProperties().getProperty('FORMULA_SEP'));
+  Logger.log(log.join(' | '));
+  return log;
 }
 
 /* ============================== HTTP ============================== */
@@ -181,12 +181,13 @@ function doPost(e) {
       return json_(a === 'config' ? actionConfig_() : actionEvents_(req.events || []));
     }
     if (a === 'login') return json_(actionLogin_(req));
-    if (a === 'dashboard' || a === 'saveSetup' || a === 'testEmail') {
+    if (a === 'dashboard' || a === 'saveSetup' || a === 'testEmail' || a === 'fixFormulas') {
       var who = checkToken_(req.token);
       if (!who) return json_({ ok: false, error: 'Sessão expirada', auth: false });
       rememberSite_(req.site);
       if (a === 'dashboard') return json_(actionDashboard_());
       if (a === 'saveSetup') return json_(actionSaveSetup_(req, who));
+      if (a === 'fixFormulas') { var lock = LockService.getScriptLock(); lock.waitLock(25000); try { return json_({ ok: true, log: corrigirFormulas() }); } finally { lock.releaseLock(); } }
       return json_(actionTestEmail_(req));
     }
     return json_({ ok: false, error: 'Ação desconhecida' });

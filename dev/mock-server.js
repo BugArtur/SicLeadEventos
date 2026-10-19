@@ -31,6 +31,7 @@ function makeSheet(name) {
       return rg;
     },
     appendRow(v) { rows[sh.getLastRow()] = v.slice(); return sh; },
+    clear() { rows.length = 0; return sh; },
     setFrozenRows: () => sh, setColumnWidth: () => sh
   };
   return sh;
