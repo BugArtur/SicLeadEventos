@@ -1,17 +1,12 @@
 /* Raspadinha SIC — motor do jogo (camada de serviço).
-   Mesma interface que a API do backend deve expor: draw, reveal, redeem, config, mensagens, stats.
-   Nesta versão a persistência é local (localStorage) e cada operação é transacional
-   (estado copiado, alterado e gravado de uma vez; em caso de erro, nada muda). */
+   O sorteio acontece no totem (funciona sem internet). As regras (prêmios, chances, tetos por dia,
+   estoque, mensagens) vêm da planilha via SICSync.applyRemote e ficam em cache local.
+   Cada operação é transacional (estado copiado, alterado e gravado de uma vez; em caso de erro, nada muda).
+   Regra de teto: prêmio que bate o teto do dia ou esgota o estoque sai do sorteio e a chance dele vai para "Sem premiação". */
 (() => {
   if (window.SICGame) return;
   const KEY = 'sic-game-v1', SKEY = 'sic-game-session';
   const T1 = 'Não foi dessa vez!', T2 = 'Que pena!';
-  const TYPES = {
-    GIFT: { label: 'Brinde SIC', prize: true },
-    DISCOUNT_5: { label: '5% na assinatura', prize: true, pct: 5, prefix: 'SIC-5OFF-' },
-    SETUP_10: { label: '10% na implantação e setup', prize: true, pct: 10, prefix: 'SIC-SETUP10-' },
-    NO_PRIZE: { label: 'Sem premiação', prize: false }
-  };
   const MSGS = [
     ['eSocial', T1, 'Seu eSocial travou e você perdeu o prazo!', 'Com o SIC, menos burocracia e mais controle das obrigações da sua cooperativa!', 'alert'],
     ['Nota Fiscal', T2, 'Um erro no preenchimento manual da nota fiscal obrigou você a refazer tudo!', 'Automatize a emissão de notas fiscais com o SIC!', 'receipt'],
@@ -29,6 +24,7 @@
     ['Relatórios', T2, 'A diretoria pediu um relatório urgente e os dados estão espalhados em cinco planilhas!', 'Tenha indicadores centralizados e acessíveis com o SIC!', 'chart'],
     ['Processos manuais', T1, 'Sua equipe passou o dia inteiro fazendo tarefas que poderiam ser automáticas!', 'Modernize sua cooperativa e ganhe eficiência com o SIC!', 'hourglass']
   ];
+  const MSG_ICON = Object.fromEntries(MSGS.map((m, i) => ['M' + String(i + 1).padStart(2, '0'), m[4]]));
   const ICONS = {
     gift: '<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5C10 3 12 8 12 8s2-5 4.5-5a2.5 2.5 0 0 1 0 5"/>',
     percent: '<path d="M19 5 5 19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>',
@@ -54,28 +50,32 @@
   };
   const icon = (name, color, sw) => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="' + (color || '#0d2231') + '" stroke-width="' + (sw || 1.8) + '" stroke-linecap="round" stroke-linejoin="round">' + (ICONS[name] || ICONS.sparkle) + '</svg>');
 
+  /* Prêmios padrão — usados até o totem receber as regras da planilha. kind: coupon | gift | none */
+  const DEFAULT_PRIZES = [
+    { id: 'GIFT', name: 'Brinde SIC', kind: 'gift', partner: '', pct: 0, prefix: '', prob: 15, cap1: 20, cap2: 20, stock: 40, active: true, desc: 'Brinde físico retirado no estande do SIC.', conditions: '' },
+    { id: 'DISCOUNT_5', name: '5% na assinatura', kind: 'coupon', partner: '', pct: 5, prefix: 'SIC-5OFF-', prob: 10, cap1: 15, cap2: 15, stock: null, active: true, desc: '5% de desconto na assinatura do SIC.', conditions: 'Válido para novos contratos do SIC assinados dentro da validade do cupom. Não cumulativo com outras promoções.' },
+    { id: 'SETUP_10', name: '10% na implantação e setup', kind: 'coupon', partner: '', pct: 10, prefix: 'SIC-SETUP10-', prob: 5, cap1: 5, cap2: 5, stock: null, active: true, desc: '10% de desconto na implantação e setup do SIC.', conditions: 'Válido sobre o valor de implantação e setup em novos contratos assinados dentro da validade do cupom. Não cumulativo.' },
+    { id: 'NO_PRIZE', name: 'Sem premiação', kind: 'none', partner: '', pct: 0, prefix: '', prob: 70, cap1: null, cap2: null, stock: null, active: true, desc: '', conditions: '' }
+  ];
+
   const defaults = () => ({
-    config: {
-      probs: { GIFT: 15, DISCOUNT_5: 10, SETUP_10: 5, NO_PRIZE: 70 },
-      active: { GIFT: true, DISCOUNT_5: true, SETUP_10: true },
-      giftName: 'Brinde exclusivo SIC',
-      couponDays: 30,
-      desc: { GIFT: 'Brinde físico retirado no estande do SIC.', DISCOUNT_5: '5% de desconto na assinatura do SIC.', SETUP_10: '10% de desconto na implantação e setup do SIC.' },
-      conditions: {
-        DISCOUNT_5: 'Válido para novos contratos do SIC assinados dentro da validade do cupom. Não cumulativo com outras promoções.',
-        SETUP_10: 'Válido sobre o valor de implantação e setup em novos contratos assinados dentro da validade do cupom. Não cumulativo.'
-      },
-      resetSeconds: 15,
-      prizeResetSeconds: 60,
-      pin: '1234'
-    },
-    stock: { initial: 100, reserved: 0, redeemed: 0 },
+    config: { couponDays: 30, resetSeconds: 15, prizeResetSeconds: 60, idleSeconds: 60, pin: '1234', day1: '', day2: '', updatedAt: '', updatedBy: '' },
+    prizes: JSON.parse(JSON.stringify(DEFAULT_PRIZES)),
+    remoteCounts: {}, remoteAt: '',
     messages: MSGS.map((m, i) => ({ id: 'M' + String(i + 1).padStart(2, '0'), category: m[0], title: m[1], problem: m[2], solution: m[3], icon: m[4], active: true })),
     games: [], coupons: [], log: []
   });
 
   const load = () => {
-    try { const j = JSON.parse(localStorage.getItem(KEY)); if (j && j.config) { const d = defaults(); return { ...d, ...j, config: { ...d.config, ...j.config, probs: { ...d.config.probs, ...j.config.probs }, active: { ...d.config.active, ...j.config.active } } }; } } catch (e) {}
+    try {
+      const j = JSON.parse(localStorage.getItem(KEY));
+      if (j && j.config) {
+        const d = defaults();
+        const out = { ...d, ...j, config: { ...d.config, ...j.config } };
+        if (!Array.isArray(j.prizes)) out.prizes = d.prizes; // base antiga (antes das regras por planilha)
+        return out;
+      }
+    } catch (e) {}
     return defaults();
   };
   let db = load();
@@ -83,62 +83,124 @@
   window.addEventListener('storage', e => { if (e.key === KEY) { db = load(); emit(); } });
 
   const tx = fn => {
-    const snap = JSON.stringify(db);
-    const d = JSON.parse(snap);
+    const d = JSON.parse(JSON.stringify(db));
     const r = fn(d);
     localStorage.setItem(KEY, JSON.stringify(d));
     db = d; emit();
     return r;
   };
+  const sync = (kind, id, data) => { try { if (window.SICSync) window.SICSync.enqueue(kind, id, data); } catch (e) {} };
   const rnd = () => { const a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] / 4294967296; };
   const ALPH = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
   const rcode = n => Array.from({ length: n }, () => ALPH[Math.floor(rnd() * ALPH.length)]).join('');
   const now = () => new Date().toISOString();
+  const pad = n => String(n).padStart(2, '0');
+  const dateKey = (dt = new Date()) => dt.getFullYear() + '-' + pad(dt.getMonth() + 1) + '-' + pad(dt.getDate());
   const couponStatus = c => (c.status === 'Disponível' && c.expiresAt && new Date(c.expiresAt) < new Date()) ? 'Expirado' : c.status;
-  const giftAvailable = d => Math.max(0, d.stock.initial - d.stock.reserved);
   const isTitle = t => t === T1 || t === T2;
 
+  /* Tipos derivados dos prêmios configurados (mantém o formato usado pela tela e pelo painel do totem). */
+  const typesOf = d => {
+    const o = {};
+    d.prizes.forEach(p => { o[p.id] = { label: p.name, prize: p.kind !== 'none', kind: p.kind, pct: p.pct, prefix: p.prefix, partner: p.partner, desc: p.desc, conditions: p.conditions }; });
+    if (!o.NO_PRIZE) o.NO_PRIZE = { label: 'Sem premiação', prize: false, kind: 'none' };
+    d.games.forEach(g => { if (!o[g.type]) o[g.type] = { label: g.typeLabel || g.type, prize: g.type !== 'NO_PRIZE', kind: g.couponCode ? 'coupon' : 'gift' }; });
+    return o;
+  };
+
+  /* Dia do evento: compara a data local do totem com as datas configuradas. */
+  const dayOf = (d, key) => key && key === d.config.day1 ? { label: 'Dia 1', n: 1 } : key && key === d.config.day2 ? { label: 'Dia 2', n: 2 } : { label: 'Ensaio', n: 1 };
+
+  /* Quantos já saíram: maior valor entre o registro local e o da planilha (protege contra dados locais apagados). */
+  const usedOn = (d, id, key) => Math.max(d.games.filter(g => g.type === id && (g.dayKey || (g.drawnAt || '').slice(0, 10)) === key).length, ((d.remoteCounts[id] || {}).byDate || {})[key] || 0);
+  const usedTotal = (d, id) => Math.max(d.games.filter(g => g.type === id).length, (d.remoteCounts[id] || {}).total || 0);
+
+  const capFor = (d, p, key) => { const n = dayOf(d, key).n; const v = n === 2 ? p.cap2 : p.cap1; return v === null || v === undefined || v === '' ? null : Number(v); };
+
+  const availability = (d, p, key) => {
+    if (p.kind === 'none') return { ok: true };
+    if (!p.active) return { ok: false, why: 'Inativo' };
+    if (!(Number(p.prob) > 0)) return { ok: false, why: 'Chance 0%' };
+    const cap = capFor(d, p, key), today = usedOn(d, p.id, key);
+    if (cap !== null && today >= cap) return { ok: false, why: 'Teto do dia atingido' };
+    if (p.stock !== null && p.stock !== undefined && p.stock !== '' && usedTotal(d, p.id) >= Number(p.stock)) return { ok: false, why: 'Estoque esgotado' };
+    return { ok: true };
+  };
+
   const api = {
-    TYPES, T1, T2, icon,
+    T1, T2, icon,
+    get TYPES() { return typesOf(db); },
     get: () => db,
     reload: () => { db = load(); emit(); return db; },
-    couponStatus, giftAvailable: () => giftAvailable(db),
+    couponStatus, dateKey,
+    dayLabel: () => dayOf(db, dateKey()).label,
+
+    /* Situação de cada prêmio hoje (usado no painel da equipe do totem). */
+    prizeStatus() {
+      const key = dateKey();
+      return db.prizes.map(p => {
+        const a = availability(db, p, key);
+        return { ...p, capToday: capFor(db, p, key), usedToday: usedOn(db, p.id, key), usedTotal: usedTotal(db, p.id), available: a.ok, why: a.why || '' };
+      });
+    },
+    giftAvailable: () => db.prizes.filter(p => p.kind === 'gift' && p.stock !== null && p.stock !== '').reduce((s, p) => s + Math.max(0, Number(p.stock) - usedTotal(db, p.id)), 0),
+
+    /* Recebe as regras da planilha (via SICSync). */
+    applyRemote(r) {
+      if (!r || !Array.isArray(r.prizes) || !r.prizes.length) return;
+      tx(d => {
+        d.config = { ...d.config, ...(r.config || {}) };
+        d.prizes = r.prizes.map(p => ({ ...p, prob: Number(p.prob) || 0 }));
+        if (!d.prizes.some(p => p.id === 'NO_PRIZE')) d.prizes.push({ ...DEFAULT_PRIZES[3], prob: 0 });
+        if (Array.isArray(r.messages) && r.messages.length) d.messages = r.messages.map(m => ({ ...m, icon: MSG_ICON[m.id] || 'sparkle' }));
+        d.remoteCounts = r.counts || {};
+        d.remoteAt = now();
+      });
+    },
 
     /* Sorteio ponderado. Idempotente por lead: a segunda chamada devolve a mesma participação. */
-    draw(leadId) {
+    draw(leadId, lead) {
       if (!leadId) throw new Error('Lead inválido.');
       const prev = db.games.find(g => g.leadId === leadId);
       if (prev) return prev;
-      return tx(d => {
+      let cpOut = null;
+      const g = tx(d => {
         const again = d.games.find(g => g.leadId === leadId);
         if (again) return again;
-        const c = d.config;
-        const pool = Object.keys(TYPES)
-          .filter(t => t === 'NO_PRIZE' || (c.active[t] && (t !== 'GIFT' || giftAvailable(d) > 0)))
-          .map(t => [t, Math.max(0, Number(c.probs[t]) || 0)])
-          .filter(x => x[1] > 0);
-        const total = pool.reduce((s, x) => s + x[1], 0);
-        let type = 'NO_PRIZE';
-        if (total > 0) { let x = rnd() * total; for (const [t, w] of pool) { x -= w; if (x < 0) { type = t; break; } } }
+        const key = dateKey();
+        const pool = d.prizes.filter(p => p.kind !== 'none' && availability(d, p, key).ok).map(p => [p, Number(p.prob)]);
+        const taken = pool.reduce((s, x) => s + x[1], 0);
+        const noWeight = Math.max(0, 100 - taken); // regra A: chance dos prêmios indisponíveis vai para "Sem premiação"
+        let prize = null;
+        let x = rnd() * (taken + noWeight);
+        for (const [p, w] of pool) { x -= w; if (x < 0) { prize = p; break; } }
+        const type = prize ? prize.id : 'NO_PRIZE';
         let gid; do { gid = 'G-' + rcode(6); } while (d.games.some(g => g.id === gid));
         const at = now();
-        const g = { id: gid, leadId, type, result: TYPES[type].prize ? 'Premiado' : 'Não premiado', couponCode: '', messageId: '', drawnAt: at, revealedAt: '', redeemStatus: TYPES[type].prize ? 'Pendente' : '—', redeemedAt: '', operator: '' };
-        if (type === 'GIFT') d.stock.reserved += 1;
-        if (TYPES[type].prefix) {
-          let code; do { code = TYPES[type].prefix + rcode(4); } while (d.coupons.some(x => x.code === code));
-          d.coupons.push({ id: 'C-' + rcode(6), code, leadId, gameId: gid, type, pct: TYPES[type].pct, issuedAt: at, expiresAt: new Date(Date.now() + (Number(c.couponDays) || 30) * 864e5).toISOString(), status: 'Disponível', usedAt: '', operator: '' });
+        const day = dayOf(d, key);
+        const g = { id: gid, leadId, type, typeLabel: prize ? prize.name : 'Sem premiação', result: prize ? 'Premiado' : 'Não premiado', couponCode: '', messageId: '', drawnAt: at, dayKey: key, dayLabel: day.label, revealedAt: '', redeemStatus: prize ? 'Pendente' : '—', redeemedAt: '', operator: '' };
+        let cp = null;
+        if (prize && prize.kind === 'coupon') {
+          const prefix = prize.prefix || ('SIC-' + prize.id + '-');
+          let code; do { code = prefix + rcode(4); } while (d.coupons.some(x => x.code === code));
+          cp = { id: 'C-' + rcode(6), code, leadId, gameId: gid, type, pct: Number(prize.pct) || 0, issuedAt: at, expiresAt: new Date(Date.now() + (Number(d.config.couponDays) || 30) * 864e5).toISOString(), status: 'Disponível', usedAt: '', operator: '' };
+          d.coupons.push(cp);
           g.couponCode = code;
         }
-        if (type === 'NO_PRIZE') {
+        if (!prize) {
           const act = d.messages.filter(m => m.active && isTitle(m.title));
           const from = act.length ? act : d.messages;
           const m = from[Math.floor(rnd() * from.length)];
           g.messageId = m ? m.id : '';
         }
         d.games.push(g);
-        d.log.push({ at, kind: 'Sorteio', gameId: gid, leadId, detail: TYPES[type].label + (g.couponCode ? ' · ' + g.couponCode : '') });
+        d.log.push({ at, kind: 'Sorteio', gameId: gid, leadId, detail: g.typeLabel + (g.couponCode ? ' · ' + g.couponCode : '') });
+        cpOut = cp;
         return g;
       });
+      const m = g.messageId ? db.messages.find(x => x.id === g.messageId) : null;
+      sync('draw', 'draw:' + g.id, { gameId: g.id, leadId, nome: (lead && lead.nome) || '', type: g.type, typeLabel: g.typeLabel, prize: g.type !== 'NO_PRIZE', couponCode: g.couponCode, pct: cpOut ? cpOut.pct : 0, expiresAt: cpOut ? cpOut.expiresAt : '', messageId: g.messageId, messageCategory: m ? m.category : '', drawnAt: g.drawnAt, dayLabel: g.dayLabel });
+      return api.game(g.id);
     },
     gameByLead: leadId => db.games.find(g => g.leadId === leadId) || null,
     game: id => db.games.find(g => g.id === id) || null,
@@ -148,16 +210,25 @@
     reveal(gameId) {
       const g = api.game(gameId);
       if (!g || g.revealedAt) return g;
-      return tx(d => { const x = d.games.find(y => y.id === gameId); x.revealedAt = now(); d.log.push({ at: x.revealedAt, kind: 'Revelação', gameId, leadId: x.leadId, detail: TYPES[x.type].label }); return x; });
+      const x = tx(d => { const x = d.games.find(y => y.id === gameId); x.revealedAt = now(); d.log.push({ at: x.revealedAt, kind: 'Revelação', gameId, leadId: x.leadId, detail: x.typeLabel || x.type }); return x; });
+      sync('reveal', 'reveal:' + gameId, { gameId, leadId: x.leadId });
+      return x;
+    },
+
+    /* Visitante saiu sem raspar: avisa a planilha para enviar o e-mail mesmo assim. */
+    close(gameId) {
+      const g = api.game(gameId);
+      if (!g || g.revealedAt) return;
+      sync('close', 'close:' + gameId, { gameId, leadId: g.leadId });
     },
 
     /* Resgate: só por operador autenticado; impede duplicidade. */
     redeem(gameId, operator) {
       if (!operator) throw new Error('Operador não autenticado.');
-      return tx(d => {
+      const g = tx(d => {
         const g = d.games.find(y => y.id === gameId);
         if (!g) throw new Error('Participação não encontrada.');
-        if (!TYPES[g.type].prize) throw new Error('Esta participação não tem prêmio.');
+        if (g.type === 'NO_PRIZE') throw new Error('Esta participação não tem prêmio.');
         if (g.redeemStatus === 'Resgatado') throw new Error('Prêmio já resgatado em ' + new Date(g.redeemedAt).toLocaleString('pt-BR') + ' por ' + g.operator + '.');
         const at = now();
         if (g.couponCode) {
@@ -166,73 +237,36 @@
           if (st !== 'Disponível') throw new Error('Cupom ' + st.toLowerCase() + '.');
           c.status = 'Resgatado'; c.usedAt = at; c.operator = operator;
         }
-        if (g.type === 'GIFT') d.stock.redeemed += 1;
         g.redeemStatus = 'Resgatado'; g.redeemedAt = at; g.operator = operator;
-        d.log.push({ at, kind: 'Resgate', gameId, leadId: g.leadId, detail: TYPES[g.type].label + (g.couponCode ? ' · ' + g.couponCode : '') + ' · ' + operator });
+        d.log.push({ at, kind: 'Resgate', gameId, leadId: g.leadId, detail: (g.typeLabel || g.type) + (g.couponCode ? ' · ' + g.couponCode : '') + ' · ' + operator });
         return g;
       });
-    },
-    cancelCoupon(code, operator) {
-      return tx(d => {
-        const c = d.coupons.find(x => x.code === code);
-        if (!c) throw new Error('Cupom não encontrado.');
-        if (c.status === 'Resgatado') throw new Error('Cupom já utilizado.');
-        c.status = 'Cancelado';
-        const g = d.games.find(y => y.id === c.gameId); if (g) g.redeemStatus = 'Cancelado';
-        d.log.push({ at: now(), kind: 'Cancelamento', gameId: c.gameId, leadId: c.leadId, detail: code + ' · ' + operator });
-      });
+      sync('redeem', 'redeem:' + gameId, { gameId, leadId: g.leadId, operator, redeemedAt: g.redeemedAt });
+      return g;
     },
 
-    saveConfig(cfg, stockInitial) {
-      const sum = ['GIFT', 'DISCOUNT_5', 'SETUP_10', 'NO_PRIZE'].reduce((s, k) => s + (Number(cfg.probs[k]) || 0), 0);
-      if (Math.abs(sum - 100) > 1e-9) throw new Error('A soma das probabilidades precisa ser 100%.');
-      if (Object.values(cfg.probs).some(v => Number(v) < 0)) throw new Error('Probabilidades não podem ser negativas.');
-      if (!(Number(cfg.couponDays) >= 1)) throw new Error('Validade do cupom inválida.');
-      return tx(d => {
-        if (stockInitial != null) {
-          const n = Math.floor(Number(stockInitial));
-          if (!(n >= d.stock.reserved)) throw new Error('O estoque não pode ser menor que os ' + d.stock.reserved + ' brindes já sorteados.');
-          d.stock.initial = n;
-        }
-        d.config = { ...d.config, ...cfg, probs: Object.fromEntries(Object.entries(cfg.probs).map(([k, v]) => [k, Number(v)])), couponDays: Number(cfg.couponDays), resetSeconds: Number(cfg.resetSeconds) || 15 };
-        d.log.push({ at: now(), kind: 'Configuração', gameId: '', leadId: '', detail: 'Regras atualizadas' });
-      });
-    },
-    updateMessage(id, patch) {
-      if (patch.title != null && !isTitle(patch.title)) throw new Error('O título deve ser "' + T1 + '" ou "' + T2 + '".');
-      return tx(d => { const m = d.messages.find(x => x.id === id); if (m) Object.assign(m, patch); });
-    },
-    addMessage() {
-      return tx(d => {
-        let n = d.messages.length + 1, id; do { id = 'M' + String(n++).padStart(2, '0'); } while (d.messages.some(m => m.id === id));
-        d.messages.push({ id, category: 'Nova', title: T1, problem: 'Descreva a situação da cooperativa.', solution: 'Mostre como o SIC resolve.', icon: 'sparkle', active: false });
-        return id;
-      });
-    },
-    deleteMessage(id) {
-      if (db.games.some(g => g.messageId === id)) throw new Error('Mensagem já exibida a visitantes; desative em vez de excluir.');
-      return tx(d => { d.messages = d.messages.filter(m => m.id !== id); });
-    },
     messageUses: id => db.games.filter(g => g.messageId === id).length,
 
     stats() {
+      const T = typesOf(db);
       const g = db.games, cps = db.coupons.map(c => ({ ...c, st: couponStatus(c) }));
-      const prem = g.filter(x => TYPES[x.type].prize).length;
+      const prem = g.filter(x => x.type !== 'NO_PRIZE').length;
+      const isGift = x => (T[x.type] || {}).kind === 'gift';
       const byDay = {};
-      g.forEach(x => { const k = x.drawnAt.slice(0, 10); byDay[k] = (byDay[k] || 0) + 1; });
+      g.forEach(x => { const k = x.dayKey || x.drawnAt.slice(0, 10); byDay[k] = (byDay[k] || 0) + 1; });
       const msgCount = {};
       g.filter(x => x.messageId).forEach(x => { msgCount[x.messageId] = (msgCount[x.messageId] || 0) + 1; });
       return {
         total: g.length, premiados: prem, naoPremiados: g.length - prem, taxa: g.length ? prem / g.length : 0,
-        byType: Object.fromEntries(Object.keys(TYPES).map(t => [t, g.filter(x => x.type === t).length])),
-        brindesDistribuidos: db.stock.reserved, brindesResgatados: db.stock.redeemed, estoque: giftAvailable(db),
+        byType: Object.fromEntries(Object.keys(T).map(t => [t, g.filter(x => x.type === t).length])),
+        brindesDistribuidos: g.filter(isGift).length, brindesResgatados: g.filter(x => isGift(x) && x.redeemStatus === 'Resgatado').length, estoque: api.giftAvailable(),
         cupons5: cps.filter(c => c.type === 'DISCOUNT_5').length, cupons10: cps.filter(c => c.type === 'SETUP_10').length,
         cuponsUsados: cps.filter(c => c.st === 'Resgatado').length, cuponsDisponiveis: cps.filter(c => c.st === 'Disponível').length,
         cupons5Usados: cps.filter(c => c.type === 'DISCOUNT_5' && c.st === 'Resgatado').length, cupons10Usados: cps.filter(c => c.type === 'SETUP_10' && c.st === 'Resgatado').length,
         byDay, msgCount
       };
     },
-    resetAll() { return tx(d => { d.games = []; d.coupons = []; d.log = []; d.stock.reserved = 0; d.stock.redeemed = 0; }); },
+    resetAll() { return tx(d => { d.games = []; d.coupons = []; d.log = []; }); },
 
     session: {
       get() { try { return JSON.parse(localStorage.getItem(SKEY) || 'null'); } catch (e) { return null; } },

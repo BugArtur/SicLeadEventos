@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Painel do evento · SIC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="/config.js"></script>
+<script src="/painel/br-map-dados.js"></script>
+<style>
+  :root {
+    --navy: #0d2231; --navy-2: #16384F; --green: #8DC63F; --green-ink: #3B6E0F; --green-bg: #EDF6E1;
+    --blue: #1C7EB7; --muted: #3D5566; --soft: #7F97A8; --line: #E3ECF3; --line-2: #EEF3F7;
+    --bg: #F4F9FC; --card: #ffffff; --red: #C0442F; --red-ink: #9E3423; --red-bg: #FBEDEA; --amber-bg: #FFF4D6; --amber-ink: #7A5B00;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { font-family: 'IBM Plex Sans', system-ui, sans-serif; background: var(--bg); color: var(--navy); -webkit-font-smoothing: antialiased; font-size: 15px; }
+  button, input, select, textarea { font-family: inherit; font-size: inherit; color: inherit; }
+  button { cursor: pointer; }
+  [hidden] { display: none !important; }
+
+  /* Login */
+  .login { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; background: var(--navy);
+    background-image: linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px); background-size: 48px 48px; }
+  .login-card { width: min(440px, 100%); background: #fff; border-radius: 28px; padding: 36px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 40px 80px rgba(0,0,0,0.35); }
+  .login-card img { height: 44px; align-self: flex-start; margin-left: -8px; }
+  .login-card h1 { margin: 0; font-size: 30px; letter-spacing: -0.02em; }
+  .login-card p { margin: 0; color: var(--muted); line-height: 1.45; }
+
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field > span { font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+  .input { height: 48px; border: 2px solid #D7E4ED; border-radius: 12px; padding: 0 14px; background: #fff; width: 100%; }
+  textarea.input { height: auto; padding: 10px 14px; line-height: 1.45; resize: vertical; }
+  .input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 4px rgba(28,126,183,0.15); }
+  .input.num { text-align: right; }
+  .btn { min-height: 46px; border: none; border-radius: 999px; padding: 0 20px; font-weight: 700; background: var(--navy); color: #fff; display: inline-flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap; }
+  .btn:hover { background: var(--navy-2); }
+  .btn.green { background: var(--green); color: var(--navy); } .btn.green:hover { background: #9BD24D; }
+  .btn.ghost { background: transparent; color: var(--navy); border: 2px solid #C9D7E2; } .btn.ghost:hover { border-color: var(--navy); }
+  .btn.small { min-height: 36px; padding: 0 14px; font-size: 13px; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .err { color: var(--red-ink); font-weight: 600; }
+
+  /* App */
+  .app { max-width: 1440px; margin: 0 auto; padding: 24px clamp(16px, 3vw, 40px) 120px; display: flex; flex-direction: column; gap: 20px; }
+  .top { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 16px; }
+  .brand img { height: 40px; }
+  .brand .sep { width: 1px; height: 30px; background: #C9D7E2; }
+  .brand h1 { margin: 0; font-size: 24px; letter-spacing: -0.02em; }
+  .top-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 14px; color: var(--muted); }
+  .top-right b { color: var(--navy); }
+  .bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; border-bottom: 2px solid var(--line); padding-bottom: 12px; }
+  .tabs, .seg { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tab { min-height: 42px; border: none; border-radius: 999px; padding: 0 18px; font-weight: 700; background: #fff; color: var(--navy); }
+  .tab.on { background: var(--navy); color: #fff; }
+  .seg { background: #fff; border-radius: 999px; padding: 4px; }
+  .seg button { min-height: 34px; border: none; border-radius: 999px; padding: 0 14px; font-weight: 600; background: transparent; color: var(--muted); }
+  .seg button.on { background: var(--green); color: var(--navy); font-weight: 700; }
+  .meta { font-size: 13px; color: var(--muted); }
+
+  .grid { display: grid; gap: 20px; }
+  #view { display: flex; flex-direction: column; gap: 20px; }
+  .kpis { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+  .card { background: var(--card); border-radius: 20px; padding: 20px 22px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .card h2 { margin: 0; font-size: 17px; letter-spacing: -0.01em; }
+  .card .head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .kpi { gap: 4px; }
+  .kpi .l { font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+  .kpi .v { font-size: 34px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.05; }
+  .kpi .s { font-size: 13px; color: var(--muted); }
+  .halves { grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); }
+
+  /* Mapa */
+  .map-wrap { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(300px, 1fr); gap: clamp(20px, 3vw, 48px); align-items: center; }
+  @media (max-width: 900px) { .map-wrap { grid-template-columns: 1fr; } }
+  .map-side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .map-side h3 { margin: 4px 0 0; font-size: 14px; color: var(--muted); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+  .map-side .brow { grid-template-columns: minmax(0, 150px) minmax(0, 1fr) 40px; }
+  .map { position: relative; width: 100%; max-width: 620px; justify-self: center; aspect-ratio: 1 / 0.95; }
+  .map svg { width: 100%; height: 100%; display: block; }
+  .map path { transition: fill .2s ease; cursor: default; }
+  .map-tip { position: absolute; pointer-events: none; background: var(--navy); color: #fff; border-radius: 10px; padding: 8px 12px; font-size: 13px; display: flex; flex-direction: column; gap: 2px; white-space: nowrap; z-index: 2; }
+  .map-fallback { height: 100%; display: flex; align-items: center; justify-content: center; color: var(--soft); }
+  .legend { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+  .legend .ramp { display: flex; height: 10px; border-radius: 999px; overflow: hidden; flex: 1; max-width: 180px; }
+  .legend .ramp span { flex: 1; }
+
+  /* Barras (série única) */
+  .bars { display: flex; flex-direction: column; gap: 10px; }
+  .brow { display: grid; grid-template-columns: minmax(0, 170px) minmax(0, 1fr) 44px; gap: 10px; align-items: center; font-size: 14px; }
+  .brow .lab { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--navy); }
+  .brow .track { height: 14px; background: var(--line-2); border-radius: 4px; overflow: hidden; }
+  .brow .fill { height: 100%; background: var(--blue); border-radius: 0 4px 4px 0; min-width: 2px; }
+  .brow .val { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .cols { display: flex; align-items: flex-end; gap: 6px; height: 180px; padding-top: 8px; border-bottom: 1px solid var(--line); }
+  .col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; height: 100%; min-width: 0; }
+  .col .bx { width: 100%; max-width: 40px; background: var(--blue); border-radius: 4px 4px 0 0; min-height: 2px; }
+  .col .n { font-size: 12px; font-weight: 700; }
+  .col-labels { display: flex; gap: 6px; } .col-labels span { flex: 1; text-align: center; font-size: 12px; color: var(--muted); }
+  .prog { display: flex; flex-direction: column; gap: 6px; }
+  .prog .row { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; }
+  .prog .track { height: 12px; background: var(--line-2); border-radius: 4px; overflow: hidden; }
+  .prog .fill { height: 100%; background: var(--green); border-radius: 0 4px 4px 0; }
+  .prog .fill.full { background: var(--red); }
+  .empty { padding: 28px; text-align: center; color: var(--muted); }
+
+  /* Tabelas */
+  .tbl-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; padding: 10px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--line-2); vertical-align: top; line-height: 1.4; }
+  td.nowrap { white-space: nowrap; }
+  td .sub { font-size: 12px; color: var(--muted); }
+  .pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+  .pill.ok { background: var(--green-bg); color: var(--green-ink); } .pill.warn { background: var(--amber-bg); color: var(--amber-ink); }
+  .pill.bad { background: var(--red-bg); color: var(--red-ink); } .pill.mute { background: var(--line-2); color: var(--muted); }
+
+  /* Setup */
+  .setup .input { height: 44px; border-radius: 10px; padding: 0 12px; }
+  .setup textarea.input { height: auto; padding: 10px 12px; }
+  .status-line { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 14px; color: var(--muted); background: var(--bg); border-radius: 12px; padding: 10px 14px; }
+  .link { background: none; border: none; padding: 0; color: var(--blue); font-weight: 700; text-decoration: underline; }
+  .setup-tbl td { vertical-align: middle; padding: 12px; }
+  .setup-tbl td:first-child { min-width: 220px; }
+  .setup-tbl .input.num { width: 110px; }
+  .setup-tbl td .sub { margin-top: 4px; }
+  .setup-tbl td.big { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .setup-tbl tr.off td:not(:last-child) { opacity: 0.5; }
+  .setup-tbl tr.np td { background: var(--bg); }
+  .unit { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: var(--muted); }
+  .setup-foot { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+  .howto { font-size: 14px; color: var(--muted); max-width: 720px; }
+  .howto summary { cursor: pointer; font-weight: 700; color: var(--blue); }
+  .howto ul { margin: 10px 0 0; padding-left: 18px; line-height: 1.6; }
+  .fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px 16px; align-items: end; }
+  .fields.text { grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); align-items: start; }
+  .fields .span2 { grid-column: span 2; }
+  @media (max-width: 560px) { .fields .span2 { grid-column: auto; } }
+  .toggle { min-height: 34px; border: none; border-radius: 999px; padding: 0 14px; font-size: 13px; font-weight: 700; }
+  .toggle.on { background: var(--green-bg); color: var(--green-ink); } .toggle.off { background: var(--line-2); color: var(--muted); }
+  .sum { display: flex; align-items: center; gap: 10px; font-weight: 700; }
+  .sum .v.ok { color: #4E8A15; } .sum .v.bad { color: var(--red); }
+  .form-row { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }
+  .form-row .field { width: 190px; }
+  .form-row .field.wide { width: min(100%, 420px); }
+  .hint { font-size: 13px; color: var(--muted); line-height: 1.5; }
+  .savebar { position: fixed; left: 0; right: 0; bottom: 0; background: var(--navy); color: #fff; padding: 14px clamp(16px, 3vw, 40px); display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; z-index: 10; box-shadow: 0 -10px 30px rgba(13,34,49,0.25); }
+  .savebar .btn.ghost { color: #fff; border-color: rgba(255,255,255,0.35); }
+  .details td { background: #FAFCFD; }
+
+  .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: var(--navy); color: #fff; padding: 12px 20px; border-radius: 14px; font-weight: 600; z-index: 30; box-shadow: 0 16px 40px rgba(0,0,0,0.25); }
+  .toast.bad { background: var(--red); }
+  .tip { position: fixed; pointer-events: none; background: var(--navy); color: #fff; border-radius: 10px; padding: 8px 12px; font-size: 13px; z-index: 40; white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<section class="login" id="login" hidden>
+  <form class="login-card" id="loginForm" autocomplete="off">
+    <img src="/assets/logo-tag.png" alt="SIC">
+    <h1>Painel do evento</h1>
+    <p>Acompanhamento de leads e setup de premiação. Acesso restrito à equipe.</p>
+    <label class="field"><span>Usuário</span><input class="input" id="loginNome" required maxlength="60" autocomplete="username" autocapitalize="characters"></label>
+    <label class="field"><span>Senha</span><input class="input" id="loginSenha" type="password" required autocomplete="current-password"></label>
+    <span class="err" id="loginErr" hidden></span>
+    <button class="btn" type="submit" id="loginBtn">Entrar</button>
+  </form>
+</section>
+
+<main class="app" id="app" hidden>
+  <div class="top">
+    <div class="brand"><img src="/assets/logo-tag.png" alt="SIC"><span class="sep"></span><h1>Painel do evento</h1></div>
+    <div class="top-right">
+      <span id="updated"></span>
+      <span>Olá, <b id="who"></b></span>
+      <a class="btn ghost small" id="sheetLink" target="_blank" rel="noopener">Abrir planilha</a>
+      <button class="btn ghost small" id="refreshBtn">Atualizar</button>
+      <button class="btn ghost small" id="logoutBtn">Sair</button>
+    </div>
+  </div>
+  <div class="bar">
+    <nav class="tabs" id="tabs"></nav>
+    <div class="seg" id="daySeg"></div>
+  </div>
+  <div id="view"></div>
+</main>
+
+<div class="savebar" id="savebar" hidden>
+  <span id="saveMsg">Há alterações não salvas.</span>
+  <div style="display:flex; gap:10px;"><button class="btn ghost" id="discardBtn">Descartar</button><button class="btn green" id="saveBtn">Salvar e aplicar no totem</button></div>
+</div>
+<div class="toast" id="toast" hidden></div>
+<div class="tip" id="tip" hidden></div>
+
+<script>
+(() => {
+  const API = (window.SIC_CONFIG || {}).apiUrl;
+  const TABS = [['overview', 'Visão geral'], ['leads', 'Leads'], ['setup', 'Setup do dia'], ['premios', 'Prêmios e cupons'], ['config', 'Configurações'], ['email', 'E-mail']];
+  const RAMOS = ['Agropecuário', 'Consumo', 'Crédito', 'Infraestrutura', 'Saúde', 'Trabalho, produção de bens e serviços', 'Transporte'];
+  const FAIXAS = ['Menos de 100', '100 a 500', '501 a 1.000', '1.001 a 5.000', '5.001 a 10.000', 'Mais de 10.000'];
+  const $ = id => document.getElementById(id);
+  const esc = v => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const pad = n => String(n).padStart(2, '0');
+  const todayKey = () => { const d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); };
+  const fmtDT = v => v ? new Date(v).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+  const fmtD = v => v ? new Date(v).toLocaleDateString('pt-BR') : '—';
+  const num = v => v === '' || v === null || v === undefined || isNaN(Number(v)) ? null : Number(v);
+  const pctTxt = v => (Math.round(v * 10) / 10).toString().replace('.', ',') + '%';
+  const clone = o => JSON.parse(JSON.stringify(o));
+
+  const S = { token: sessionStorage.getItem('sic-painel-token') || '', nome: sessionStorage.getItem('sic-painel-nome') || '', data: null, tab: 'overview', day: 'all', mapMode: 'sede', draft: null, dirty: false, q: '', q2: '', busy: false };
+
+  async function api(action, body) {
+    if (!API) throw new Error('config.js sem apiUrl: publique o Apps Script e preencha a URL.');
+    const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action, token: S.token, site: location.origin, ...body }) });
+    if (!r.ok) throw new Error('Falha de conexão (HTTP ' + r.status + ').');
+    const j = await r.json();
+    if (j.auth === false) { logout(); throw new Error('Sessão expirada. Entre novamente.'); }
+    if (!j.ok) throw new Error(j.error || 'Erro no servidor.');
+    return j;
+  }
+
+  function toast(msg, bad) { const t = $('toast'); t.textContent = msg; t.className = 'toast' + (bad ? ' bad' : ''); t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => t.hidden = true, 4000); }
+
+  /* ---------- sessão ---------- */
+  function showLogin() { $('login').hidden = false; $('app').hidden = true; $('savebar').hidden = true; setTimeout(() => $(S.nome ? 'loginSenha' : 'loginNome').focus(), 50); $('loginNome').value = S.nome; }
+  function logout() { S.token = ''; sessionStorage.removeItem('sic-painel-token'); S.data = null; S.draft = null; S.dirty = false; showLogin(); }
+  $('loginForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    $('loginErr').hidden = true; $('loginBtn').disabled = true;
+    try {
+      const j = await api('login', { usuario: $('loginNome').value.trim(), senha: $('loginSenha').value });
+      S.token = j.token; S.nome = j.nome;
+      sessionStorage.setItem('sic-painel-token', j.token); sessionStorage.setItem('sic-painel-nome', j.nome);
+      $('loginSenha').value = '';
+      await boot();
+    } catch (err) { $('loginErr').textContent = err.message; $('loginErr').hidden = false; }
+    $('loginBtn').disabled = false;
+  });
+  $('logoutBtn').onclick = () => { if (S.dirty && !confirm('Há alterações não salvas. Sair mesmo assim?')) return; logout(); };
+  $('refreshBtn').onclick = () => load(true);
+
+  async function boot() {
+    $('login').hidden = true; $('app').hidden = false; $('who').textContent = S.nome;
+    await load(true);
+  }
+
+  async function load(manual) {
+    if (S.busy) return;
+    S.busy = true;
+    try {
+      const j = await api('dashboard', {});
+      S.data = j;
+      if (!S.dirty) S.draft = null;
+      $('sheetLink').href = j.sheetUrl || '#';
+      $('updated').textContent = 'Atualizado às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      render();
+    } catch (err) { if (manual || !S.data) toast(err.message, true); }
+    S.busy = false;
+  }
+  setInterval(() => { if (S.token && S.data && !S.dirty && !isEdit() && !document.hidden) load(false); }, 30000);
+
+  /* ---------- navegação ---------- */
+  function renderNav() {
+    $('tabs').innerHTML = TABS.map(([k, l]) => `<button class="tab${S.tab === k ? ' on' : ''}" data-tab="${k}">${l}</button>`).join('');
+    const days = dayOptions();
+    const showSeg = S.tab === 'overview' || S.tab === 'leads';
+    $('daySeg').hidden = !showSeg;
+    $('daySeg').innerHTML = days.map(([k, l]) => `<button class="${S.day === k ? 'on' : ''}" data-day="${k}">${l}</button>`).join('');
+  }
+  $('tabs').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (!b) return; S.tab = b.dataset.tab; render(); });
+  $('daySeg').addEventListener('click', e => { const b = e.target.closest('[data-day]'); if (!b) return; S.day = b.dataset.day; render(); });
+
+  function dayOptions() {
+    const o = [['all', 'Evento todo'], ['Dia 1', 'Dia 1'], ['Dia 2', 'Dia 2']];
+    if (S.data && S.data.leads.some(l => l.day === 'Ensaio')) o.push(['Ensaio', 'Ensaio']);
+    return o;
+  }
+  const byDay = list => S.day === 'all' ? list.filter(x => x.day !== 'Ensaio') : list.filter(x => x.day === S.day);
+
+  function render() {
+    if (!S.data) return;
+    renderNav();
+    const v = $('view');
+    if (S.tab === 'overview') v.innerHTML = viewOverview();
+    if (S.tab === 'leads') v.innerHTML = viewLeads();
+    if (S.tab === 'setup') v.innerHTML = viewSetup();
+    if (S.tab === 'config') v.innerHTML = viewConfig();
+    if (S.tab === 'premios') v.innerHTML = viewPremios();
+    if (S.tab === 'email') v.innerHTML = viewEmail();
+    if (S.tab === 'overview') drawMap();
+    $('savebar').hidden = !(isEdit() && S.dirty);
+    if (S.tab === 'setup') updateAuto();
+    if (S.tab === 'leads' || S.tab === 'premios') { const i = v.querySelector('[data-search]'); if (i && document.activeElement !== i && S._refocus) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } S._refocus = false; }
+  }
+
+  /* ---------- visão geral ---------- */
+  const countBy = (list, f) => { const o = {}; list.forEach(x => { const k = f(x); if (k) o[k] = (o[k] || 0) + 1; }); return o; };
+  const prizeOf = id => (S.data.prizes.find(p => p.id === id) || {});
+
+  function hbars(entries, emptyMsg) {
+    const max = Math.max(1, ...entries.map(e => e[1]));
+    if (!entries.some(e => e[1])) return `<div class="empty">${emptyMsg}</div>`;
+    return `<div class="bars">${entries.map(([l, v]) => `<div class="brow" data-tip="${esc(l)}: ${v}"><span class="lab">${esc(l)}</span><div class="track"><div class="fill" style="width:${v ? Math.max(1, v / max * 100) : 0}%"></div></div><span class="val">${v}</span></div>`).join('')}</div>`;
+  }
+
+  function viewOverview() {
+    const D = S.data, leads = byDay(D.leads), ids = new Set(leads.map(l => l.id));
+    const games = D.games.filter(g => ids.has(g.leadId));
+    const prem = games.filter(g => g.result === 'Premiado');
+    const cupons = games.filter(g => g.coupon);
+    const gifts = prem.filter(g => !g.coupon);
+    const sent = leads.filter(l => /^Enviado/.test(l.email_status)).length;
+    const pend = leads.filter(l => /^Aguardando/.test(l.email_status)).length;
+    const dayName = S.day === 'all' ? 'no evento' : S.day === 'Ensaio' ? 'no ensaio' : 'no ' + S.day;
+    const kpis = [
+      ['Leads', leads.length, dayName],
+      ['Raspadinhas premiadas', prem.length, games.length ? pctTxt(prem.length / games.length * 100) + ' das participações' : 'nenhuma participação'],
+      ['Cupons de desconto', cupons.length, cupons.filter(g => g.redeem === 'Resgatado').length + ' registrados no estande'],
+      ['Brindes sorteados', gifts.length, gifts.filter(g => g.redeem === 'Resgatado').length + ' retirados'],
+      ['E-mails enviados', sent, pend ? pend + ' aguardando' : 'nenhum pendente']
+    ];
+    const sede = countBy(leads, l => l.uf);
+    const atu = {}; leads.forEach(l => String(l.atuacao || '').split(',').map(s => s.trim()).filter(Boolean).forEach(u => atu[u] = (atu[u] || 0) + 1));
+    const vals = S.mapMode === 'sede' ? sede : atu;
+    S._mapVals = vals;
+    const top = Object.entries(vals).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([uf, n]) => [(window.SICMapaDados.UF ? Object.values(window.SICMapaDados.UF).find(x => x[0] === uf) || [uf, uf] : [uf, uf])[1], n]);
+    const ramo = RAMOS.map(r => [r === 'Trabalho, produção de bens e serviços' ? 'Trabalho' : r, leads.filter(l => l.ramo === r).length]);
+    const faixa = FAIXAS.map(f => [f, leads.filter(l => l.cooperados === f).length]);
+    const hours = {}; leads.forEach(l => { const h = new Date(l.ts).getHours(); hours[h] = (hours[h] || 0) + 1; });
+    const hk = Object.keys(hours).map(Number);
+    const h0 = hk.length ? Math.min(8, ...hk) : 8, h1 = hk.length ? Math.max(18, ...hk) : 18;
+    const hrs = []; for (let h = h0; h <= h1; h++) hrs.push([h, hours[h] || 0]);
+    const hmax = Math.max(1, ...hrs.map(x => x[1]));
+    const recent = [...leads].sort((a, b) => String(b.ts).localeCompare(String(a.ts))).slice(0, 8);
+    const gByLead = {}; D.games.forEach(g => gByLead[g.leadId] = g);
+
+    return `
+    <div class="grid kpis">${kpis.map(k => `<div class="card kpi"><span class="l">${k[0]}</span><span class="v">${k[1]}</span><span class="s">${esc(k[2])}</span></div>`).join('')}</div>
+    <div class="card">
+      <div class="head"><h2>Leads por estado</h2><div class="seg" id="mapSeg"><button data-map="sede" class="${S.mapMode === 'sede' ? 'on' : ''}">Sede</button><button data-map="atuacao" class="${S.mapMode === 'atuacao' ? 'on' : ''}">Atuação</button></div></div>
+      <div class="map-wrap">
+        <div class="map" id="map"></div>
+        <div class="map-side">
+          <div class="legend"><span>0</span><span class="ramp">${window.SICMapaDados.RAMP.map(c => `<span style="background:${c}"></span>`).join('')}</span><span>${Math.max(0, ...Object.values(vals))}</span></div>
+          <span class="hint">${S.mapMode === 'sede' ? 'Estado da sede da cooperativa.' : 'Estados onde a cooperativa atua (um lead pode contar em vários).'}</span>
+          <h3>Estados com mais leads</h3>
+          ${hbars(top, 'Sem leads ainda.')}
+        </div>
+      </div>
+    </div>
+    <div class="grid halves">
+      <div class="card"><h2>Prêmios hoje × teto</h2>${prizeProgress()}</div>
+      <div class="card"><h2>Leads por hora</h2>
+        ${leads.length ? `<div class="cols">${hrs.map(([h, n]) => `<div class="col" data-tip="${pad(h)}h: ${n} ${n === 1 ? 'lead' : 'leads'}"><span class="n">${n || ''}</span><div class="bx" style="height:${n ? n / hmax * 100 : 0}%"></div></div>`).join('')}</div><div class="col-labels">${hrs.map(([h]) => `<span>${pad(h)}h</span>`).join('')}</div>` : '<div class="empty">Sem leads ainda.</div>'}
+      </div>
+    </div>
+    <div class="grid halves">
+      <div class="card"><h2>Leads por ramo</h2>${hbars(ramo, 'Sem leads ainda.')}</div>
+      <div class="card"><h2>Tamanho da cooperativa (cooperados)</h2>${hbars(faixa, 'Sem leads ainda.')}</div>
+    </div>
+    <div class="card"><div class="head"><h2>Últimos cadastros</h2><button class="btn ghost small" data-tab-go="leads">Ver todos</button></div>
+      ${recent.length ? `<div class="tbl-wrap"><table><thead><tr><th>Horário</th><th>Representante</th><th>Cooperativa</th><th>Local</th><th>Raspadinha</th></tr></thead><tbody>
+      ${recent.map(l => { const g = gByLead[l.id]; return `<tr><td class="nowrap">${fmtDT(l.ts)}</td><td><b>${esc(l.nome)}</b></td><td>${esc(l.cooperativa)}<div class="sub">${esc(l.ramo)}</div></td><td>${esc(l.cidade)} / ${esc(l.uf)}</td><td>${g ? `<span class="pill ${g.result === 'Premiado' ? 'ok' : 'mute'}">${esc(g.label)}</span>` : '<span class="pill mute">—</span>'}</td></tr>`; }).join('')}
+      </tbody></table></div>` : '<div class="empty">Nenhum cadastro ainda.</div>'}
+    </div>`;
+  }
+
+  function prizeProgress() {
+    const D = S.data, key = todayKey(), cfg = D.config;
+    const n = key === cfg.day2 ? 2 : 1;
+    const lbl = key === cfg.day1 ? 'Dia 1' : key === cfg.day2 ? 'Dia 2' : 'hoje (fora das datas do evento)';
+    const rows = D.prizes.filter(p => p.kind !== 'none').map(p => {
+      const used = ((D.counts[p.id] || {}).byDate || {})[key] || 0;
+      const cap = n === 2 ? p.cap2 : p.cap1;
+      const total = (D.counts[p.id] || {}).total || 0;
+      const full = (cap !== null && used >= cap) || (p.stock !== null && total >= p.stock);
+      const w = cap ? Math.min(100, used / cap * 100) : (used ? 100 : 0);
+      return `<div class="prog" data-tip="${esc(p.name)}: ${used}${cap !== null ? ' de ' + cap : ''} hoje"><div class="row"><span><b>${esc(p.name)}</b>${p.active ? '' : ' <span class="pill mute">inativo</span>'}${full ? ' <span class="pill bad">' + (cap !== null && used >= cap ? 'teto atingido' : 'esgotado') + '</span>' : ''}</span><span>${used}${cap !== null ? ' de ' + cap : ' (sem teto)'}</span></div><div class="track"><div class="fill${full ? ' full' : ''}" style="width:${w}%"></div></div>${p.stock !== null ? `<span class="hint">Estoque: ${Math.max(0, p.stock - total)} de ${p.stock} restantes</span>` : ''}</div>`;
+    });
+    return `<span class="hint">Contagem de ${lbl}.</span><div style="display:flex; flex-direction:column; gap:14px;">${rows.join('') || '<div class="empty">Nenhum prêmio configurado.</div>'}</div>`;
+  }
+
+  function drawMap() {
+    const el = $('map'); if (!el) return;
+    window.SICMapaDados.render(el, S._mapVals || {}, ['lead', 'leads']);
+  }
+
+  /* ---------- leads ---------- */
+  function viewLeads() {
+    const D = S.data, gByLead = {}; D.games.forEach(g => gByLead[g.leadId] = g);
+    const qn = S.q.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const all = byDay(D.leads).slice().sort((a, b) => String(b.ts).localeCompare(String(a.ts)));
+    const list = qn ? all.filter(l => [l.nome, l.cooperativa, l.cidade, l.uf, l.email, l.telefone, l.ramo].some(v => String(v || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(qn))) : all;
+    return `<div class="card">
+      <div class="head"><h2>${list.length} ${list.length === 1 ? 'lead' : 'leads'}</h2><input class="input" data-search="q" style="max-width:420px" placeholder="Buscar por nome, cooperativa, cidade, e-mail…" value="${esc(S.q)}"></div>
+      ${list.length ? `<div class="tbl-wrap"><table><thead><tr><th>Data/hora</th><th>Representante</th><th>Cooperativa</th><th>Cooperados</th><th>Sede</th><th>Atuação</th><th>Contato</th><th>Raspadinha</th><th>E-mail</th></tr></thead><tbody>
+      ${list.map(l => { const g = gByLead[l.id]; const es = String(l.email_status || ''); return `<tr>
+        <td class="nowrap">${fmtDT(l.ts)}<div class="sub">${esc(l.day)}</div></td>
+        <td><b>${esc(l.nome)}</b></td>
+        <td>${esc(l.cooperativa)}<div class="sub">${esc(l.ramo)}</div></td>
+        <td class="nowrap">${esc(l.cooperados)}</td>
+        <td>${esc(l.cidade)} / ${esc(l.uf)}</td>
+        <td>${esc(l.atuacao)}</td>
+        <td class="nowrap">${esc(l.telefone)}<div class="sub">${esc(l.email)}</div></td>
+        <td>${g ? `<span class="pill ${g.result === 'Premiado' ? 'ok' : 'mute'}">${esc(g.label)}</span>${g.coupon ? `<div class="sub">${esc(g.coupon)}</div>` : ''}` : '—'}</td>
+        <td><span class="pill ${/^Enviado/.test(es) ? 'ok' : /^Erro/.test(es) ? 'bad' : /^Aguardando/.test(es) ? 'warn' : 'mute'}">${esc(es.replace(/ \d\d\/\d\d \d\d:\d\d$/, '') || '—')}</span></td>
+      </tr>`; }).join('')}</tbody></table></div>` : '<div class="empty">Nenhum lead encontrado.</div>'}
+    </div>`;
+  }
+
+  /* ---------- setup do dia + configurações ---------- */
+  const isEdit = () => S.tab === 'setup' || S.tab === 'config';
+  function draft() {
+    if (!S.draft) {
+      const D = S.data;
+      S.draft = { prizes: clone(D.prizes), config: { ...clone(D.config), email_ativo: !!D.raw.email_ativo } };
+    }
+    return S.draft;
+  }
+  function markDirty() { S.dirty = true; $('savebar').hidden = !isEdit(); updateAuto(); }
+
+  /* "Sem premiação" = 100% menos a soma dos outros prêmios (ninguém precisa fechar a conta). */
+  const others = d => d.prizes.filter(p => p.kind !== 'none').reduce((s, p) => s + (Number(p.prob) || 0), 0);
+  function syncNoPrize(d) { const np = d.prizes.find(p => p.kind === 'none'); if (np) np.prob = Math.round((100 - others(d)) * 100) / 100; }
+  function updateAuto() {
+    const d = draft(); syncNoPrize(d);
+    const np = d.prizes.find(p => p.kind === 'none'), over = np && np.prob < 0;
+    const el = document.querySelector('[data-auto]');
+    if (el) el.innerHTML = over ? `<span class="pill bad">Passou de 100%</span><div class="sub">Os prêmios somam ${String(Math.round(others(d) * 100) / 100).replace('.', ',')}%. Reduza alguma chance.</div>` : `<b>${String(np ? np.prob : 0).replace('.', ',')}%</b><div class="sub">calculado: o que falta até 100%</div>`;
+    $('saveBtn').disabled = !!over;
+  }
+
+  function setupDayN() {
+    const c = draft().config, key = todayKey();
+    if (!S.setupDay) S.setupDay = key === c.day2 ? 2 : 1;
+    return S.setupDay;
+  }
+  const brDate = k => k ? k.split('-').reverse().slice(0, 2).join('/') : '';
+
+  function viewSetup() {
+    const d = draft(), D = S.data, c = d.config, key = todayKey(), n = setupDayN();
+    const dayKey = n === 2 ? c.day2 : c.day1, capK = n === 2 ? 'cap2' : 'cap1';
+    const used = id => (((D.counts[id] || {}).byDate || {})[dayKey] || 0);
+    const tot = id => ((D.counts[id] || {}).total || 0);
+    let status;
+    if (!c.day1 || !c.day2) status = `<span class="pill warn">Atenção</span> Defina as datas do evento na aba <button class="link" data-tab-go="config">Configurações</button> antes de abrir o estande.`;
+    else if (key === dayKey) status = `<span class="pill ok">Hoje</span> Você está editando o dia que está acontecendo agora.`;
+    else if (key < dayKey) status = `Preparando o Dia ${n} (${brDate(dayKey)}). Os tetos valem a partir desse dia.`;
+    else status = `O Dia ${n} (${brDate(dayKey)}) já passou.`;
+    const rows = d.prizes.map((p, i) => {
+      const none = p.kind === 'none', isNew = p.kind === 'gift' && /^GIFT_P/.test(p.id);
+      const sub = none ? 'Quando ninguém ganha' : p.kind === 'coupon' ? 'Cupom de desconto' : 'Brinde físico' + (p.partner && !isNew ? ' · ' + esc(p.partner) : '');
+      if (none) return `<tr class="np"><td><b>Sem premiação</b><div class="sub">${sub}</div></td><td data-auto></td><td colspan="3"><span class="hint">Quando um prêmio bate o teto ou acaba o estoque, a chance dele vem para cá.</span></td><td></td></tr>`;
+      const left = p.stock === null || p.stock === undefined || p.stock === '' ? 'sem limite' : 'restam ' + Math.max(0, p.stock - tot(p.id));
+      return `<tr class="${p.active ? '' : 'off'}">
+        <td>${isNew ? `<input class="input" data-p="${i}" data-k="name" value="${esc(p.name)}" placeholder="Nome do brinde"><input class="input" style="margin-top:6px" data-p="${i}" data-k="partner" value="${esc(p.partner)}" placeholder="Parceiro (opcional)">` : `<b>${esc(p.name)}</b><div class="sub">${sub}</div>`}</td>
+        <td><div class="unit"><input class="input num" type="number" min="0" max="100" step="0.5" data-p="${i}" data-k="prob" value="${p.prob}"><span>%</span></div></td>
+        <td><input class="input num" type="number" min="0" step="1" data-p="${i}" data-k="${capK}" value="${p[capK] ?? ''}" placeholder="sem teto"></td>
+        <td class="big">${used(p.id)}</td>
+        <td><input class="input num" type="number" min="0" step="1" data-p="${i}" data-k="stock" value="${p.stock ?? ''}" placeholder="sem limite"><div class="sub">${left}</div></td>
+        <td><button class="toggle ${p.active ? 'on' : 'off'}" data-toggle="${i}">${p.active ? 'Ativo' : 'Inativo'}</button></td>
+      </tr>`;
+    }).join('');
+    return `<div class="card setup">
+      <div class="head"><h2>Prêmios do dia</h2>
+        <div class="seg" id="setupDay"><button data-sday="1" class="${n === 1 ? 'on' : ''}">Dia 1${c.day1 ? ' · ' + brDate(c.day1) : ''}</button><button data-sday="2" class="${n === 2 ? 'on' : ''}">Dia 2${c.day2 ? ' · ' + brDate(c.day2) : ''}</button></div>
+      </div>
+      <div class="status-line">${status}</div>
+      <div class="tbl-wrap"><table class="setup-tbl">
+        <thead><tr><th>Prêmio</th><th>Chance</th><th>Teto do Dia ${n}</th><th>Saíram no Dia ${n}</th><th>Estoque total</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+      <div class="setup-foot"><button class="btn ghost small" id="addGift">+ Novo brinde</button>
+        <details class="howto"><summary>Como funciona?</summary><ul>
+          <li><b>Chance:</b> a probabilidade de cada visitante ganhar aquele prêmio. Vale para os dois dias.</li>
+          <li><b>Teto do dia:</b> o máximo daquele prêmio que pode sair no dia escolhido acima. Em branco = sem teto.</li>
+          <li><b>Estoque total:</b> a quantidade física para o evento inteiro. Em branco = sem limite.</li>
+          <li>Ao bater o teto ou acabar o estoque, o prêmio sai do sorteio sozinho. Para tirar na hora, use <b>Inativo</b>.</li>
+          <li>Depois de salvar, o totem aplica em até 1 minuto.</li>
+        </ul></details>
+      </div>
+    </div>`;
+  }
+
+  function viewConfig() {
+    const c = draft().config, key = todayKey();
+    const todayIs = key === c.day1 ? 'Hoje é o Dia 1.' : key === c.day2 ? 'Hoje é o Dia 2.' : 'Hoje não é dia de evento: cadastros feitos hoje ficam marcados como "Ensaio".';
+    return `<div class="grid setup">
+      <div class="card"><h2>Datas do evento</h2>
+        <div class="fields" style="max-width:560px">
+          <label class="field"><span>Dia 1</span><input class="input" type="date" data-c="day1" value="${esc(c.day1)}"></label>
+          <label class="field"><span>Dia 2</span><input class="input" type="date" data-c="day2" value="${esc(c.day2)}"></label>
+        </div><span class="hint">${todayIs}</span>
+      </div>
+      <div class="card"><h2>Totem</h2>
+        <div class="fields">
+          <label class="field"><span>Validade do cupom (dias)</span><input class="input num" type="number" min="1" data-c="couponDays" value="${c.couponDays}"></label>
+          <label class="field"><span>Reinício sem prêmio (s)</span><input class="input num" type="number" min="5" data-c="resetSeconds" value="${c.resetSeconds}"></label>
+          <label class="field"><span>Reinício com prêmio (s)</span><input class="input num" type="number" min="10" data-c="prizeResetSeconds" value="${c.prizeResetSeconds}"></label>
+          <label class="field"><span>Volta ao início se parado (s)</span><input class="input num" type="number" min="20" data-c="idleSeconds" value="${c.idleSeconds}"></label>
+          <label class="field"><span>PIN da equipe no totem</span><input class="input" inputmode="numeric" maxlength="8" data-c="pin" value="${esc(c.pin)}"></label>
+        </div>
+      </div>
+      <div class="card"><div class="head"><h2>E-mail de boas-vindas</h2><button class="toggle ${c.email_ativo ? 'on' : 'off'}" data-ctoggle="email_ativo">${c.email_ativo ? 'Envio ligado' : 'Envio desligado'}</button></div>
+        <span class="hint">Enviado automaticamente para cada visitante. Desligue só se precisar pausar os envios.</span>
+      </div>
+      <span class="hint">Última alteração: ${S.data.config.updatedAt ? fmtDT(S.data.config.updatedAt) + ' por ' + esc(S.data.config.updatedBy) : '—'}.</span>
+    </div>`;
+  }
+
+  $('view').addEventListener('input', e => {
+    const t = e.target;
+    if (t.dataset.search) { S[t.dataset.search] = t.value; S._refocus = true; render(); return; }
+    if (!isEdit()) return;
+    const d = draft();
+    if (t.dataset.p !== undefined) {
+      const p = d.prizes[Number(t.dataset.p)], k = t.dataset.k;
+      p[k] = k === 'prob' ? (Number(t.value) || 0) : ['cap1', 'cap2', 'stock'].includes(k) ? num(t.value) : t.value;
+      return markDirty();
+    }
+    if (t.dataset.c) { d.config[t.dataset.c] = t.type === 'number' ? (Number(t.value) || 0) : t.dataset.c === 'pin' ? t.value.replace(/\D/g, '') : t.value; return markDirty(); }
+  });
+  $('view').addEventListener('click', e => {
+    const t = e.target.closest('button'); if (!t) return;
+    if (t.dataset.tabGo) { S.tab = t.dataset.tabGo; return render(); }
+    if (t.dataset.map) { S.mapMode = t.dataset.map; return render(); }
+    if (t.id === 'sendTest') return sendTest();
+    if (!isEdit()) return;
+    const d = draft();
+    if (t.dataset.sday) { S.setupDay = Number(t.dataset.sday); return render(); }
+    if (t.dataset.toggle !== undefined) { const p = d.prizes[Number(t.dataset.toggle)]; p.active = !p.active; markDirty(); return render(); }
+    if (t.dataset.ctoggle) { d.config[t.dataset.ctoggle] = !d.config[t.dataset.ctoggle]; markDirty(); return render(); }
+    if (t.id === 'addGift') {
+      let n = 1, id; do { id = 'GIFT_P' + pad(n++); } while (d.prizes.some(p => p.id === id));
+      const at = d.prizes.findIndex(p => p.kind === 'none');
+      d.prizes.splice(at < 0 ? d.prizes.length : at, 0, { id, name: '', kind: 'gift', partner: '', pct: 0, prefix: '', prob: 0, cap1: null, cap2: null, stock: null, active: true, desc: '', conditions: '' });
+      markDirty(); render();
+      const el = [...document.querySelectorAll('[data-k="name"]')].find(i => d.prizes[Number(i.dataset.p)].id === id); if (el) el.focus();
+    }
+  });
+
+  $('discardBtn').onclick = () => { S.draft = null; S.dirty = false; render(); };
+  $('saveBtn').onclick = async () => {
+    const d = draft(); syncNoPrize(d);
+    if (d.prizes.some(p => p.kind === 'none' && p.prob < 0)) return toast('As chances dos prêmios passam de 100%.', true);
+    if (d.prizes.some(p => p.kind !== 'none' && !String(p.name || '').trim())) return toast('Dê um nome ao brinde novo.', true);
+    if (!/^\d{4,8}$/.test(String(d.config.pin))) return toast('O PIN do totem precisa ter de 4 a 8 dígitos.', true);
+    $('saveBtn').disabled = true; $('saveMsg').textContent = 'Salvando…';
+    try {
+      const c = d.config;
+      const j = await api('saveSetup', { prizes: d.prizes, config: { day1: c.day1, day2: c.day2, couponDays: c.couponDays, resetSeconds: c.resetSeconds, prizeResetSeconds: c.prizeResetSeconds, idleSeconds: c.idleSeconds, pin: c.pin, email_ativo: !!c.email_ativo } });
+      S.data = j; S.draft = null; S.dirty = false;
+      toast('Salvo. O totem aplica em até 1 minuto.');
+      render();
+    } catch (err) { toast(err.message, true); }
+    $('saveBtn').disabled = false; $('saveMsg').textContent = 'Há alterações não salvas.';
+  };
+  window.addEventListener('beforeunload', e => { if (S.dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+  /* ---------- prêmios e cupons ---------- */
+  function viewPremios() {
+    const D = S.data;
+    const qn = S.q2.trim().toLowerCase();
+    const games = D.games.filter(g => g.result === 'Premiado').slice().reverse().filter(g => !qn || [g.id, g.coupon, g.nome, g.label].some(v => String(v || '').toLowerCase().includes(qn)));
+    const coupons = D.coupons.slice().reverse().filter(c => !qn || [c.code, c.nome, c.gameId].some(v => String(v || '').toLowerCase().includes(qn)));
+    const cst = c => { const exp = c.status === 'Disponível' && c.validUntil && new Date(c.validUntil) < new Date(); return exp ? 'Expirado' : c.status; };
+    return `<div class="grid" style="gap:16px">
+      <div class="card"><div class="head"><h2>Prêmios sorteados · ${games.length}</h2><input class="input" data-search="q2" style="max-width:420px" placeholder="Buscar por código, participação ou nome" value="${esc(S.q2)}"></div>
+      <span class="hint">A retirada de brindes é registrada no painel "Equipe" do totem.</span>
+      ${games.length ? `<div class="tbl-wrap"><table><thead><tr><th>Participação</th><th>Visitante</th><th>Prêmio</th><th>Sorteado</th><th>Status</th><th>Retirada</th></tr></thead><tbody>
+      ${games.map(g => `<tr><td class="nowrap"><b>${esc(g.coupon || g.id)}</b><div class="sub">${esc(g.id)}</div></td><td>${esc(g.nome)}</td><td>${esc(g.label)}</td><td class="nowrap">${fmtDT(g.drawnAt)}<div class="sub">${esc(g.day)}</div></td><td><span class="pill ${g.redeem === 'Resgatado' ? 'ok' : 'warn'}">${esc(g.redeem)}</span></td><td class="nowrap">${g.redeemedAt ? fmtDT(g.redeemedAt) + '<div class="sub">' + esc(g.operator) + '</div>' : '—'}</td></tr>`).join('')}
+      </tbody></table></div>` : '<div class="empty">Nenhum prêmio sorteado ainda.</div>'}</div>
+      <div class="card"><h2>Cupons de desconto · ${coupons.length}</h2>
+      ${coupons.length ? `<div class="tbl-wrap"><table><thead><tr><th>Código</th><th>Visitante</th><th>Emitido</th><th>Válido até</th><th>Status</th><th>Enviado por e-mail</th></tr></thead><tbody>
+      ${coupons.map(c => { const s = cst(c); return `<tr><td class="nowrap"><b>${esc(c.code)}</b><div class="sub">${esc(prizeOf(c.type).name || c.type)}</div></td><td>${esc(c.nome)}</td><td class="nowrap">${fmtDT(c.issuedAt)}</td><td class="nowrap">${fmtD(c.validUntil)}</td><td><span class="pill ${s === 'Disponível' ? 'ok' : s === 'Resgatado' ? 'mute' : 'bad'}">${esc(s)}</span></td><td>${c.emailed === 'Sim' ? '<span class="pill ok">Sim</span>' : '<span class="pill warn">Não</span>'}</td></tr>`; }).join('')}
+      </tbody></table></div>` : '<div class="empty">Nenhum cupom emitido ainda.</div>'}</div>
+    </div>`;
+  }
+
+  /* ---------- e-mail ---------- */
+  function viewEmail() {
+    const D = S.data;
+    const sent = D.leads.filter(l => /^Enviado/.test(l.email_status)).length, err = D.leads.filter(l => /^Erro/.test(l.email_status));
+    return `<div class="grid halves">
+      <div class="card"><h2>Enviar e-mail de teste</h2>
+        <span class="hint">Envia o modelo de boas-vindas para o endereço abaixo, para aprovar o layout. Com a opção marcada, inclui um cupom de exemplo.</span>
+        <div class="form-row"><label class="field wide"><span>Enviar para</span><input class="input" id="testTo" type="email" placeholder="voce@coopedu.app.br"></label></div>
+        <label style="display:flex; gap:10px; align-items:center;"><input type="checkbox" id="testCoupon" checked> Incluir bloco de cupom</label>
+        <div><button class="btn" id="sendTest">Enviar teste</button></div>
+      </div>
+      <div class="card"><h2>Situação do envio</h2>
+        <div class="grid kpis">
+          <div class="kpi"><span class="l">Enviados</span><span class="v">${sent}</span></div>
+          <div class="kpi"><span class="l">Com erro</span><span class="v">${err.length}</span></div>
+          <div class="kpi"><span class="l">Cota restante hoje</span><span class="v">${D.emailQuota}</span></div>
+        </div>
+        <span class="hint">O e-mail sai de nao-responda@coopedu.app.br quando o visitante revela a raspadinha (ou sai sem raspar). O cupom só aparece para quem ganhou desconto. O envio é ${D.raw.email_ativo ? '<b>ligado</b>' : '<b>desligado</b>'} — altere em Configurações.</span>
+        ${err.length ? `<div class="tbl-wrap"><table><thead><tr><th>Lead</th><th>Erro</th></tr></thead><tbody>${err.map(l => `<tr><td>${esc(l.nome)}<div class="sub">${esc(l.email)}</div></td><td>${esc(l.email_status)}</td></tr>`).join('')}</tbody></table></div>` : ''}
+      </div>
+    </div>`;
+  }
+  async function sendTest() {
+    const to = $('testTo').value.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return toast('Informe um e-mail válido.', true);
+    try { await api('testEmail', { to, withCoupon: $('testCoupon').checked, nome: S.nome }); toast('E-mail de teste enviado para ' + to + '.'); } catch (err) { toast(err.message, true); }
+  }
+
+  /* ---------- tooltip das barras ---------- */
+  const tip = $('tip');
+  document.addEventListener('pointermove', e => {
+    const el = e.target.closest && e.target.closest('[data-tip]');
+    if (!el) { tip.hidden = true; return; }
+    tip.textContent = el.dataset.tip; tip.hidden = false;
+    tip.style.left = Math.min(e.clientX + 14, innerWidth - tip.offsetWidth - 8) + 'px'; tip.style.top = (e.clientY + 16) + 'px';
+  });
+
+  if (S.token) boot().catch(() => showLogin()); else showLogin();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+SIC – Captura de Leads (evento)
+================================
+
+COMO FUNCIONA
+- Totem: abre a URL publicada (index.html). Cadastro + raspadinha. Salva tudo no navegador primeiro e
+  envia para a planilha em segundo plano (fila com novas tentativas se a internet cair).
+- Painel: /painel (qualquer computador). Acompanhamento, mapa, setup do dia e e-mail de teste.
+- Backend: Google Apps Script dentro da planilha (apps-script/Code.gs), publicado como App da Web
+  pela conta nao-responda@coopedu.app.br. Grava as abas, envia o e-mail e atende o painel.
+
+PUBLICAÇÃO
+1. Siga docs/GUIA-APPS-SCRIPT.md (planilha + Apps Script).
+2. Preencha config.js com a URL /exec e a TOTEM_KEY.
+3. Publique a pasta como site estático (Vercel). Não abra o index.html com duplo clique (file://).
+
+INTERNET
+- O totem precisa de internet para ABRIR a página (bibliotecas, mapa e cidades do IBGE).
+  Depois de aberto, quedas de conexão não perdem dados: a fila envia quando a conexão voltar.
+- Abra o totem uma vez com internet antes do evento para guardar mapa e cidades em cache.
+- Use sempre o mesmo navegador no totem, fora do modo anônimo, e não limpe os dados de navegação.
+
+ACESSO
+- Painel web: usuário SIC; senha em Propriedades do Script (PAINEL_SENHA), combinada com a equipe.
+- Painel "Equipe" no totem: PIN definido no /painel (Configurações). Sair do painel encerra a sessão.
+
+REGRAS DE PREMIAÇÃO
+- Definidas no /painel: chance, teto por dia, estoque total, ativo; brindes novos com "+ Novo brinde".
+- Prêmio que bate o teto do dia ou esgota o estoque sai do sorteio e a chance vai para "Sem premiação".
+- O totem busca as regras a cada minuto ("Sincronizar agora" aplica na hora).
+
+DESENVOLVIMENTO
+- node dev/mock-server.js  ->  http://localhost:8790 (totem) e /painel/ (usuário SIC, senha "teste").
+  Roda o Code.gs real com uma planilha simulada em memória; e-mails vão para dev/emails/.
+  Crie o arquivo dev/API_DOWN para simular queda do backend.
+
+ARQUIVOS
+index.html            Totem (telas validadas; não alterar UX/UI)
+config.js             URL do Apps Script e chave do totem
+sic-game-engine.js    Regras do sorteio (tetos, estoque, cupons, resgate)
+sic-sync.js           Fila de envio e busca das regras
+sic-game-ui.js        Cartão raspável e confete
+br-map.js             Mapa interativo do cadastro
+support.js            Runtime da interface
+painel/               Painel web (/painel)
+apps-script/Code.gs   Backend (colar no Apps Script)
+assets/               Logos e imagem da tela inicial

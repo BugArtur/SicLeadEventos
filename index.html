@@ -13,7 +13,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<script src="./config.js"></script>
 <script src="./sic-game-engine.js"></script>
+<script src="./sic-sync.js"></script>
 <script src="./sic-game-ui.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <style>
@@ -466,64 +468,48 @@
 
       <sc-if value="{{ tabConfig }}" hint-placeholder-val="{{ false }}">
         <div style="display: flex; flex-direction: column; gap: 18px;">
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); gap: 16px; align-items: start;">
-            <div style="background: #ffffff; border-radius: 20px; padding: 22px 24px; display: flex; flex-direction: column; gap: 14px;">
-              <span style="font-size: 17px; font-weight: 700;">Probabilidades</span>
-              <sc-for list="{{ probRows }}" as="p" hint-placeholder-count="4">
-                <label style="display: flex; align-items: center; justify-content: space-between; gap: 12px;"><span style="font-size: 15px; font-weight: 600;">{{ p.label }}</span><span style="display: flex; align-items: center; gap: 8px;"><input type="number" min="0" max="100" step="0.5" value="{{ p.value }}" onChange="{{ p.onChange }}" style="height: 48px; border: 2px solid #D7E4ED; border-radius: 12px; padding: 0 14px; font-size: 16px; font-family: inherit; color: #0d2231; background: #ffffff; box-sizing: border-box; width: 110px; text-align: right;"><span style="font-weight: 700;">%</span></span></label>
-              </sc-for>
-              <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #E3ECF3; padding-top: 12px;"><span style="font-size: 15px; font-weight: 700;">Total</span><span style="font-size: 20px; font-weight: 700; color: {{ probSumColor }};">{{ probSum }}</span></div>
-              <span style="font-size: 13px; line-height: 1.5; color: #3D5566;">Prêmios inativos ou esgotados saem do sorteio; a chance deles é redistribuída proporcionalmente entre os demais.</span>
-            </div>
-            <div style="background: #ffffff; border-radius: 20px; padding: 22px 24px; display: flex; flex-direction: column; gap: 14px;">
-              <span style="font-size: 17px; font-weight: 700;">Prêmios</span>
-              <sc-for list="{{ prizeRows }}" as="p" hint-placeholder-count="3">
-                <div style="display: flex; flex-direction: column; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid #F0F4F7;">
-                  <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px;"><span style="font-size: 15px; font-weight: 700;">{{ p.label }}</span><button onClick="{{ p.onToggle }}" style="min-height: 36px; border-radius: 999px; border: none; padding: 0 14px; font-size: 13px; font-weight: 700; cursor: pointer; background: {{ p.tBg }}; color: {{ p.tFg }};">{{ p.tLabel }}</button></div>
-                  <input value="{{ p.desc }}" onChange="{{ p.onDesc }}" style="height: 48px; border: 2px solid #D7E4ED; border-radius: 12px; padding: 0 14px; font-size: 16px; font-family: inherit; color: #0d2231; background: #ffffff; box-sizing: border-box; width: 100%;">
-                </div>
-              </sc-for>
-              <label style="display: flex; flex-direction: column; gap: 6px;"><span style="font-size: 13px; font-weight: 700; color: #3D5566; letter-spacing: 0.08em; text-transform: uppercase; font-size: 12px;">Nome do brinde</span><input value="{{ cfg.giftName }}" onChange="{{ onGiftName }}" style="height: 48px; border: 2px solid #D7E4ED; border-radius: 12px; padding: 0 14px; font-size: 16px; font-family: inherit; color: #0d2231; background: #ffffff; box-sizing: border-box; width: 100%;"></label>
-              <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;">
-                <label style="display: flex; flex-direction: column; gap: 6px;"><span style="font-size: 13px; font-weight: 700; color: #3D5566; letter-spacing: 0.08em; text-transform: uppercase; font-size: 12px;">Estoque inicial</span><input type="number" min="0" value="{{ cfg.stockInitial }}" onChange="{{ onStock }}" style="height: 48px; border: 2px solid #D7E4ED; border-radius: 12px; padding: 0 14px; font-size: 16px; font-family: inherit; color: #0d2231; background: #ffffff; box-sizing: border-box; width: 130px;"></label>
-                <span style="font-size: 14px; line-height: 1.5; color: #3D5566; padding-bottom: 12px;">{{ stockInfo }}</span>
-              </div>
-            </div>
-            <div style="background: #ffffff; border-radius: 20px; padding: 22px 24px; display: flex; flex-direction: column; gap: 14px;">
-              <span style="font-size: 17px; font-weight: 700;">Cupons, reinício e acesso</span>
-              <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-                <label style="display: flex; flex-direction: column; gap: 6px;"><span style="font-size: 13px; font-weight: 700; color: #3D5566; letter-spacing: 0.08em; text-transform: uppercase; font-size: 12px;">Validade do cupom (dias)</span><input type="number" min="1" value="{{ cfg.couponDays }}" onChange="{{ onDays }}" style="height: 48px; border: 2px solid #D7E4ED; border-radius: 12px; padding: 0 14px; font-size: 16px; font-family: inherit; color: #0d2231; background: #ffffff; box-sizing: border-box; width: 150px;"></label>
-                <label style="display: flex; flex-direction: column; gap: 6px;"><span style="font-size: 13px; font-weight: 700; color: #3D5566; letter-spacing: 0.08em; text-transform: uppercase; font-size: 12px;">Reinício sem prêmio (s)</span><input type="number" min="5" value="{{ cfg.resetSeconds }}" onChange="{{ onReset }}" style="height: 48px; border: 2px solid #D7E4ED; border-radius: 12px; padding: 0 14px; font-size: 16px; font-family: inherit; color: #0d2231; background: #ffffff; box-sizing: border-box; width: 150px;"></label>
-                <label style="display: flex; flex-direction: column; gap: 6px;"><span style="font-size: 13px; font-weight: 700; color: #3D5566; letter-spacing: 0.08em; text-transform: uppercase; font-size: 12px;">Reinício com prêmio (s)</span><input type="number" min="10" value="{{ cfg.prizeResetSeconds }}" onChange="{{ onPrizeReset }}" style="height: 48px; border: 2px solid #D7E4ED; border-radius: 12px; padding: 0 14px; font-size: 16px; font-family: inherit; color: #0d2231; background: #ffffff; box-sizing: border-box; width: 150px;"></label>
-                <label style="display: flex; flex-direction: column; gap: 6px;"><span style="font-size: 13px; font-weight: 700; color: #3D5566; letter-spacing: 0.08em; text-transform: uppercase; font-size: 12px;">PIN da equipe</span><input value="{{ cfg.pin }}" onChange="{{ onPin }}" style="height: 48px; border: 2px solid #D7E4ED; border-radius: 12px; padding: 0 14px; font-size: 16px; font-family: inherit; color: #0d2231; background: #ffffff; box-sizing: border-box; width: 150px;"></label>
-              </div>
-              <sc-for list="{{ condRows }}" as="c" hint-placeholder-count="2">
-                <label style="display: flex; flex-direction: column; gap: 6px;"><span style="font-size: 13px; font-weight: 700; color: #3D5566; letter-spacing: 0.08em; text-transform: uppercase; font-size: 12px;">{{ c.label }}</span><textarea value="{{ c.value }}" onChange="{{ c.onChange }}" rows="3" style="border: 2px solid #D7E4ED; border-radius: 12px; padding: 10px 14px; font-size: 15px; line-height: 1.45; font-family: inherit; color: #0d2231; resize: vertical; box-sizing: border-box; width: 100%;"></textarea></label>
-              </sc-for>
-            </div>
-          </div>
-          <div style="display: flex; gap: 14px; align-items: center; flex-wrap: wrap;">
-            <button onClick="{{ saveCfg }}" style="min-height: 52px; background: {{ saveBg }}; color: #ffffff; border: none; border-radius: 999px; padding: 0 28px; font-size: 16px; font-weight: 700; cursor: {{ saveCursor }};">Salvar regras</button>
-            <sc-if value="{{ hasCfgMsg }}" hint-placeholder-val="{{ false }}"><span style="font-size: 15px; font-weight: 600; color: {{ cfgMsgColor }};">{{ cfgMsgText }}</span></sc-if>
-          </div>
           <div style="background: #ffffff; border-radius: 20px; padding: 22px 24px; display: flex; flex-direction: column; gap: 14px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;"><span style="font-size: 17px; font-weight: 700;">Mensagens sem prêmio · {{ msgCount }}</span><button onClick="{{ addMsg }}" style="min-height: 44px; background: #0d2231; color: #ffffff; border: none; border-radius: 999px; padding: 0 18px; font-size: 14px; font-weight: 700; cursor: pointer;">Adicionar mensagem</button></div>
-            <span style="font-size: 13px; color: #3D5566;">Toda mensagem começa com "Não foi dessa vez!" ou "Que pena!". As alterações são salvas na hora. Mensagens já exibidas não podem ser excluídas, só desativadas.</span>
-            <sc-if value="{{ hasMsgErr }}" hint-placeholder-val="{{ false }}"><span style="font-size: 15px; font-weight: 600; color: #9E3423;">{{ msgErr }}</span></sc-if>
-            <sc-for list="{{ msgRows }}" as="m" hint-placeholder-count="5">
-              <div style="display: grid; grid-template-columns: 54px 170px 190px minmax(0, 1.4fr) minmax(0, 1.2fr) 150px; gap: 10px; align-items: start; padding: 12px 0; border-top: 1px solid #F0F4F7; opacity: {{ m.op }};">
-                <span style="font-size: 13px; font-weight: 700; color: #3D5566; padding-top: 14px;">{{ m.id }}</span>
-                <input value="{{ m.category }}" onChange="{{ m.onCat }}" style="height: 48px; border: 2px solid #D7E4ED; border-radius: 12px; padding: 0 14px; font-size: 16px; font-family: inherit; color: #0d2231; background: #ffffff; box-sizing: border-box; width: 100%;">
-                <select value="{{ m.title }}" onChange="{{ m.onTitle }}" style="height: 48px; border: 2px solid #D7E4ED; border-radius: 12px; padding: 0 14px; font-size: 16px; font-family: inherit; color: #0d2231; background: #ffffff; box-sizing: border-box; width: 100%;"><option value="Não foi dessa vez!">Não foi dessa vez!</option><option value="Que pena!">Que pena!</option></select>
-                <textarea value="{{ m.problem }}" onChange="{{ m.onProblem }}" rows="2" style="border: 2px solid #D7E4ED; border-radius: 12px; padding: 8px 12px; font-size: 14px; line-height: 1.4; font-family: inherit; color: #0d2231; resize: vertical; box-sizing: border-box; width: 100%;"></textarea>
-                <textarea value="{{ m.solution }}" onChange="{{ m.onSolution }}" rows="2" style="border: 2px solid #D7E4ED; border-radius: 12px; padding: 8px 12px; font-size: 14px; line-height: 1.4; font-family: inherit; color: #0d2231; resize: vertical; box-sizing: border-box; width: 100%;"></textarea>
-                <div style="display: flex; flex-direction: column; gap: 6px;">
-                  <button onClick="{{ m.onToggle }}" style="min-height: 36px; border-radius: 999px; border: none; font-size: 13px; font-weight: 700; cursor: pointer; background: {{ m.tBg }}; color: {{ m.tFg }};">{{ m.tLabel }}</button>
-                  <button onClick="{{ m.onDelete }}" style="min-height: 32px; border-radius: 999px; border: 1px solid #E3ECF3; background: transparent; font-size: 12px; font-weight: 600; color: {{ m.delColor }}; cursor: pointer;">{{ m.delLabel }}</button>
-                </div>
-              </div>
-            </sc-for>
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;"><span style="font-size: 17px; font-weight: 700;">Sincronização com a planilha</span><button onClick="{{ syncNow }}" style="min-height: 44px; background: #0d2231; color: #ffffff; border: none; border-radius: 999px; padding: 0 18px; font-size: 14px; font-weight: 700; cursor: pointer;" style-hover="background: #16384F;">Sincronizar agora</button></div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px;">
+              <sc-for list="{{ syncStats }}" as="st" hint-placeholder-count="4">
+                <div style="background: #F4F9FC; border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px;"><span style="font-size: 12px; font-weight: 700; color: #3D5566; letter-spacing: 0.08em; text-transform: uppercase;">{{ st.label }}</span><span style="font-size: 20px; font-weight: 700; color: {{ st.color }};">{{ st.value }}</span></div>
+              </sc-for>
+            </div>
+            <sc-if value="{{ hasSyncErr }}" hint-placeholder-val="{{ false }}"><span style="font-size: 14px; font-weight: 600; color: #9E3423;">Último erro: {{ syncErr }}</span></sc-if>
           </div>
+          <div style="background: #ffffff; border-radius: 20px; overflow-x: auto;">
+            <div style="min-width: 900px; display: flex; flex-direction: column;">
+              <div style="padding: 18px 22px 6px; font-size: 17px; font-weight: 700;">Prêmios hoje · {{ dayLabel }}</div>
+              <div style="display: grid; grid-template-columns: 1.6fr 0.7fr 0.8fr 0.9fr 1fr 1.2fr; gap: 14px; padding: 12px 22px; border-bottom: 1px solid #E3ECF3; font-size: 12px; font-weight: 700; color: #3D5566; letter-spacing: 0.08em; text-transform: uppercase;"><span>Prêmio</span><span>Chance</span><span>Teto hoje</span><span>Saíram hoje</span><span>Total / estoque</span><span>Situação</span></div>
+              <sc-for list="{{ prizeStatusRows }}" as="p" hint-placeholder-count="4">
+                <div style="display: grid; grid-template-columns: 1.6fr 0.7fr 0.8fr 0.9fr 1fr 1.2fr; gap: 14px; align-items: center; padding: 12px 22px; border-bottom: 1px solid #EEF3F7; font-size: 15px;">
+                  <span style="display: flex; flex-direction: column;"><span style="font-weight: 700;">{{ p.name }}</span><span style="font-size: 13px; color: #3D5566;">{{ p.sub }}</span></span>
+                  <span>{{ p.prob }}</span>
+                  <span>{{ p.cap }}</span>
+                  <span style="font-weight: 700;">{{ p.today }}</span>
+                  <span>{{ p.total }}</span>
+                  <span style="justify-self: start; padding: 4px 12px; border-radius: 999px; font-size: 13px; font-weight: 700; background: {{ p.stBg }}; color: {{ p.stFg }};">{{ p.st }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); gap: 16px; align-items: start;">
+            <div style="background: #ffffff; border-radius: 20px; padding: 22px 24px; display: flex; flex-direction: column; gap: 10px;">
+              <span style="font-size: 17px; font-weight: 700;">Regras gerais</span>
+              <sc-for list="{{ ruleRows }}" as="r" hint-placeholder-count="6">
+                <div style="display: flex; justify-content: space-between; gap: 12px; font-size: 15px; padding: 6px 0; border-bottom: 1px solid #F0F4F7;"><span style="color: #3D5566;">{{ r.label }}</span><span style="font-weight: 700; text-align: right;">{{ r.value }}</span></div>
+              </sc-for>
+            </div>
+            <div style="background: #ffffff; border-radius: 20px; padding: 22px 24px; display: flex; flex-direction: column; gap: 10px;">
+              <span style="font-size: 17px; font-weight: 700;">Mensagens sem prêmio · {{ msgCount }}</span>
+              <div style="display: flex; flex-direction: column; max-height: 420px; overflow-y: auto;">
+                <sc-for list="{{ msgRows }}" as="m" hint-placeholder-count="5">
+                  <div style="display: grid; grid-template-columns: 46px minmax(0, 1fr) 90px; gap: 10px; padding: 10px 0; border-bottom: 1px solid #F0F4F7; font-size: 14px; line-height: 1.4; opacity: {{ m.op }};"><span style="font-weight: 700; color: #3D5566;">{{ m.id }}</span><span style="display: flex; flex-direction: column;"><span style="font-weight: 700;">{{ m.category }} · {{ m.title }}</span><span style="color: #3D5566;">{{ m.problem }}</span></span><span style="font-size: 13px; color: #3D5566; text-align: right;">{{ m.uses }}</span></div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+          <span style="font-size: 14px; line-height: 1.5; color: #3D5566;">As regras são alteradas no painel web (/painel). O totem busca as alterações a cada minuto; use "Sincronizar agora" para aplicar na hora.</span>
         </div>
       </sc-if>
     </div>
@@ -561,7 +547,7 @@ class Component extends DCLogic {
   load() { try { return JSON.parse(localStorage.getItem(this.KEY) || '[]'); } catch (e) { return []; } }
   state = { screen: 'welcome', step: 0, form: this.blank(), err: '', leads: this.load(), countdown: 0, confirmClear: false, query: '', cities: [], cStatus: 'idle',
     gameId: '', leadId: '', revealed: false, panelOpen: false, drawErr: '', confettiKey: '', uiReady: false, playerName: '',
-    adminTab: 'leads', operator: '', loginName: '', loginPin: '', loginErr: '', search: '', redeemMsg: null, cfg: null, cfgMsg: null, msgErr: '' };
+    adminTab: 'leads', operator: '', loginName: '', loginPin: '', loginErr: '', search: '', redeemMsg: null };
   G() { return window.SICGame; }
   gameOn() { return (this.props.raspadinha ?? true) && !!this.G(); }
   startTimer(secs) {
@@ -578,10 +564,10 @@ class Component extends DCLogic {
     if (g.revealedAt) this.startTimer(this.resetSecs(g));
   }
   resetSecs(g) { const c = this.G().get().config; return G_PRIZE(g) ? (Number(c.prizeResetSeconds) || 60) : (this.props.autoReset ?? Number(c.resetSeconds) ?? 15); }
-  drawFor(leadId, name) {
+  drawFor(leadId, name, fullName) {
     const G = this.G();
     try {
-      const g = G.draw(leadId);
+      const g = G.draw(leadId, { nome: fullName || name });
       G.session.set({ leadId, gameId: g.id, stage: 'invite', name });
       this.setState({ screen: 'invite', gameId: g.id, leadId, playerName: name, revealed: !!g.revealedAt, panelOpen: false, drawErr: '' });
     } catch (e) {
@@ -597,13 +583,22 @@ class Component extends DCLogic {
     this.setState({ revealed: true, confettiKey: G_PRIZE(g) ? g.id + '-' + Date.now() : '' });
     this.startTimer(this.resetSecs(g));
   }
-  draftFrom() { const d = this.G().get(); return JSON.parse(JSON.stringify({ ...d.config, stockInitial: d.stock.initial })); }
-  setCfg(fn) { this.setState(s => { const c = JSON.parse(JSON.stringify(s.cfg)); fn(c); return { cfg: c, cfgMsg: null }; }); }
-  safe(fn) { try { fn(); this.setState({ msgErr: '' }); } catch (e) { this.setState({ msgErr: e.message }); } }
 
+  checkIdle() {
+    const { screen, revealed } = this.state;
+    const G = this.G(), secs = Number(G && G.get().config.idleSeconds) || 60, idle = Date.now() - this.lastAct;
+    if ((screen === 'form' || screen === 'invite' || (screen === 'scratch' && !revealed)) && idle > secs * 1000) return this.reset();
+    if ((screen === 'login' || screen === 'admin') && idle > 180000) { this.setState({ operator: '' }); this.reset(); }
+  }
   componentDidMount() {
     this.onGame = () => this.forceUpdate();
     window.addEventListener('sic-game-change', this.onGame);
+    this.onSync = () => { if (this.state.screen === 'admin') this.forceUpdate(); };
+    window.addEventListener('sic-sync-change', this.onSync);
+    this.lastAct = Date.now();
+    this.onAct = () => { this.lastAct = Date.now(); };
+    ['pointerdown', 'keydown', 'input'].forEach(t => document.addEventListener(t, this.onAct, true));
+    this.idle = setInterval(() => this.checkIdle(), 5000);
     this.onScratch = d => { if (d && d.token === this.state.gameId) this.doReveal(); };
     window.__sicScratchDone = this.onScratch;
     const ready = () => { if (window.SICGame) { this.restoreSession(); } else setTimeout(ready, 150); };
@@ -628,7 +623,7 @@ class Component extends DCLogic {
     window.__sicUfSelect = this.selectUf;
     document.addEventListener('uf-select', this.onUf);
   }
-  componentWillUnmount() { window.removeEventListener('sic-game-change', this.onGame); if (window.__sicScratchDone === this.onScratch) delete window.__sicScratchDone; if (window.__sicUfSelect === this.selectUf) delete window.__sicUfSelect; document.removeEventListener('uf-select', this.onUf); clearInterval(this.timer); clearTimeout(this.adv); }
+  componentWillUnmount() { window.removeEventListener('sic-game-change', this.onGame); window.removeEventListener('sic-sync-change', this.onSync); ['pointerdown', 'keydown', 'input'].forEach(t => document.removeEventListener(t, this.onAct, true)); clearInterval(this.idle); if (window.__sicScratchDone === this.onScratch) delete window.__sicScratchDone; if (window.__sicUfSelect === this.selectUf) delete window.__sicUfSelect; document.removeEventListener('uf-select', this.onUf); clearInterval(this.timer); clearTimeout(this.adv); }
 
   async loadCities(code) {
     this.cityReq = code;
@@ -684,14 +679,16 @@ class Component extends DCLogic {
     const leads = [...this.state.leads, lead];
     try { localStorage.setItem(this.KEY, JSON.stringify(leads)); } catch (e) { this._saving = false; return this.setState({ err: 'Não foi possível salvar o cadastro. Tente novamente.' }); }
     this._saving = false;
+    if (window.SICSync) window.SICSync.enqueue('lead', 'lead:' + lead.id, { ...lead, leadId: lead.id, dayLabel: this.G() ? this.G().dayLabel() : '', noGame: !this.gameOn() });
     const name = lead.nome.trim().split(/\s+/)[0] || '';
     this.setState({ leads, err: '', form: this.blank(), query: '' });
-    if (this.gameOn()) return this.drawFor(lead.id, name);
+    if (this.gameOn()) return this.drawFor(lead.id, name, lead.nome);
     this.setState({ screen: 'done', playerName: name });
     this.startTimer(this.props.autoReset ?? 12);
   }
   reset() {
     clearInterval(this.timer); clearTimeout(this.adv);
+    if (this.G() && this.state.gameId && !this.state.revealed) this.G().close(this.state.gameId);
     if (this.G()) this.G().session.clear();
     this.setState({ screen: 'welcome', step: 0, form: this.blank(), err: '', countdown: 0, query: '', gameId: '', leadId: '', revealed: false, panelOpen: false, drawErr: '', confettiKey: '', playerName: '' });
   }
@@ -743,15 +740,19 @@ class Component extends DCLogic {
       const m = G.message(g.messageId) || { title: G.T1, problem: '', solution: '', icon: 'sparkle' };
       return { isPrize: false, isNo: true, title: m.title, problem: m.problem, solution: m.solution, icon: G.icon(m.icon, '#F08A74'), cta: 'CONHEÇA O SIC', panelTitle: 'Conheça o SIC', panelText: 'Fale com nossa equipe aqui no estande e veja na prática como o SIC integra folha, pagamentos, nota fiscal e eSocial em um só sistema.', panelMeta: '' };
     }
+    const T = G.TYPES[g.type] || {};
     const cp = g.couponCode ? G.coupon(g.couponCode) : null;
     const val = cp ? new Date(cp.expiresAt).toLocaleDateString('pt-BR') : '';
-    if (g.type === 'GIFT') return { isPrize: true, isNo: false, isGift: true, hasCode: false, title: 'PARABÉNS!', line1: 'Você ganhou um brinde exclusivo do SIC!', line2: 'Sua sorte começou por aqui.', icon: G.icon('gift', '#0d2231', 1.6), cta: 'RESGATAR MEU BRINDE', panelTitle: 'Como retirar seu brinde', panelText: 'Apresente esta tela à nossa equipe no estande. O atendente localiza sua participação e confirma a retirada no sistema.', panelMeta: 'Participação ' + g.id + ' · ' + (c.giftName || 'Brinde SIC') };
-    const five = g.type === 'DISCOUNT_5';
+    if (!g.couponCode) {
+      const sic = g.type === 'GIFT';
+      return { isPrize: true, isNo: false, isGift: true, hasCode: false, title: 'PARABÉNS!', line1: sic ? 'Você ganhou um brinde exclusivo do SIC!' : 'Você ganhou: ' + (T.label || g.typeLabel) + '!', line2: sic || !T.partner ? 'Sua sorte começou por aqui.' : 'Oferecido por ' + T.partner + '.', icon: G.icon('gift', '#0d2231', 1.6), cta: 'RESGATAR MEU BRINDE', panelTitle: 'Como retirar seu brinde', panelText: 'Apresente esta tela à nossa equipe no estande. O atendente localiza sua participação e confirma a retirada no sistema.', panelMeta: 'Participação ' + g.id + ' · ' + (T.label || g.typeLabel || 'Brinde SIC') };
+    }
+    const five = g.type === 'DISCOUNT_5', setup = g.type === 'SETUP_10';
     return { isPrize: true, isNo: false, isGift: false, hasCode: true, code: g.couponCode, title: 'PARABÉNS!',
-      line1: five ? 'Você ganhou 5% de desconto na assinatura do SIC!' : 'Sua transformação digital começou com desconto!',
-      line2: five ? 'Sua cooperativa mais eficiente e ainda economizando!' : 'Você ganhou 10% OFF na implantação e setup do SIC.',
-      icon: G.icon(five ? 'percent' : 'rocket', '#0d2231', 1.6), cta: 'VER MEU CUPOM', panelTitle: 'Cupom ' + g.couponCode,
-      panelText: (c.conditions || {})[g.type] || '', panelMeta: 'Válido até ' + val + ' · Fotografe esta tela ou mostre o código à nossa equipe.' };
+      line1: five ? 'Você ganhou 5% de desconto na assinatura do SIC!' : setup ? 'Sua transformação digital começou com desconto!' : 'Você ganhou um cupom de desconto!',
+      line2: five ? 'Sua cooperativa mais eficiente e ainda economizando!' : setup ? 'Você ganhou 10% OFF na implantação e setup do SIC.' : (T.desc || ((cp ? cp.pct : T.pct) + '% de desconto no SIC.')),
+      icon: G.icon(setup ? 'rocket' : 'percent', '#0d2231', 1.6), cta: 'VER MEU CUPOM', panelTitle: 'Cupom ' + g.couponCode,
+      panelText: T.conditions || '', panelMeta: 'Válido até ' + val + ' · Fotografe esta tela ou mostre o código à nossa equipe.' };
   }
 
   exportCsv() {
@@ -782,7 +783,7 @@ class Component extends DCLogic {
     const gByLead = {}; gdb.games.forEach(g => { gByLead[g.leadId] = g; });
     const TY = G ? G.TYPES : {};
     const res = G ? this.gameView(G) : { isPrize: false, isNo: false };
-    const { revealed, adminTab, cfg, search, redeemMsg, cfgMsg } = this.state;
+    const { revealed, adminTab, search, redeemMsg } = this.state;
     const W = (v, max) => (max ? Math.round(v / max * 100) : 0) + '%';
     const st = G && screen === 'admin' ? G.stats() : null;
     const pct = v => (Math.round(v * 1000) / 10).toString().replace('.', ',') + '%';
@@ -814,7 +815,7 @@ class Component extends DCLogic {
           { label: 'Premiadas', valueLabel: st.premiados + ' · ' + pct(st.taxa), w: W(st.premiados, st.total), color: '#8DC63F' },
           { label: 'Sem prêmio', valueLabel: st.naoPremiados + ' · ' + pct(st.total ? 1 - st.taxa : 0), w: W(st.naoPremiados, st.total), color: '#9FB4C4' }
         ],
-        chTypes: Object.keys(TY).map(t => ({ label: TY[t].label, valueLabel: String(st.byType[t]), w: W(st.byType[t], mx), color: typeColor[t] })),
+        chTypes: Object.keys(TY).map(t => ({ label: TY[t].label, valueLabel: String(st.byType[t] || 0), w: W(st.byType[t] || 0, mx), color: typeColor[t] || '#5BB0E0' })),
         chDays: days.length ? days.map(k => ({ label: k.slice(8, 10) + '/' + k.slice(5, 7), value: String(st.byDay[k]), h: W(st.byDay[k], dmx) })) : [{ label: 'hoje', value: '0', h: '0%' }],
         chCoupons: [
           { label: 'Cupons 5% emitidos', valueLabel: String(st.cupons5), w: W(st.cupons5, cmx), color: '#1C7EB7' },
@@ -836,7 +837,7 @@ class Component extends DCLogic {
         const status = g.redeemStatus === 'Pendente' && cp ? (G.couponStatus(cp) === 'Disponível' ? 'Pendente' : G.couponStatus(cp)) : g.redeemStatus;
         const can = status === 'Pendente';
         const col = stColors[status] || stColors.Expirado;
-        return { id: g.id, code: g.couponCode || (gdb.config.giftName || 'Brinde'), nome: l.nome || '—', coop: l.cooperativa || '', prize: TY[g.type].label, status, stBg: col[0], stFg: col[1],
+        return { id: g.id, code: g.couponCode || (TY[g.type] || {}).label || 'Brinde', nome: l.nome || '—', coop: l.cooperativa || '', prize: TY[g.type].label, status, stBg: col[0], stFg: col[1],
           when: new Date(g.drawnAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + (g.redeemedAt ? ' · resgatado ' + new Date(g.redeemedAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + ' por ' + g.operator : ''),
           btnLabel: can ? 'Registrar resgate' : status, btnBg: can ? '#0d2231' : '#EEF3F7', btnFg: can ? '#ffffff' : '#7F97A8', cursor: can ? 'pointer' : 'not-allowed',
           onRedeem: () => { if (!can) return; try { G.redeem(g.id, this.state.operator); this.setState({ redeemMsg: { ok: true, text: 'Resgate registrado: ' + TY[g.type].label + (g.couponCode ? ' · ' + g.couponCode : '') + ' para ' + (l.nome || g.leadId) + '.' } }); } catch (e) { this.setState({ redeemMsg: { ok: false, text: e.message } }); } } };
@@ -844,41 +845,37 @@ class Component extends DCLogic {
       adminVals.noRedeem = !prizeGames.length;
       adminVals.redeemCount = prizeGames.length + (prizeGames.length === 1 ? ' prêmio' : ' prêmios');
       adminVals.logRows = gdb.log.slice(-40).reverse().map(x => ({ at: new Date(x.at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }), kind: x.kind, gameId: x.gameId || '—', detail: x.detail }));
-      if (cfg) {
-        const sum = ['GIFT', 'DISCOUNT_5', 'SETUP_10', 'NO_PRIZE'].reduce((s2, k) => s2 + (Number(cfg.probs[k]) || 0), 0);
-        const okSum = Math.abs(sum - 100) < 1e-9;
-        Object.assign(adminVals, {
-          probRows: [['GIFT', 'Brinde SIC'], ['DISCOUNT_5', 'Desconto de 5% na assinatura'], ['SETUP_10', 'Desconto de 10% na implantação e setup'], ['NO_PRIZE', 'Sem premiação']].map(([k, label]) => ({ label, value: cfg.probs[k], onChange: e => this.setCfg(c => { c.probs[k] = e.target.value; }) })),
-          probSum: String(Math.round(sum * 100) / 100).replace('.', ',') + '%', probSumColor: okSum ? '#4E8A15' : '#C0442F',
-          prizeRows: ['GIFT', 'DISCOUNT_5', 'SETUP_10'].map(k => ({ label: TY[k].label, desc: (cfg.desc || {})[k] || '', onDesc: e => this.setCfg(c => { c.desc = { ...(c.desc || {}), [k]: e.target.value }; }),
-            tLabel: cfg.active[k] ? 'Ativo' : 'Inativo', tBg: cfg.active[k] ? '#EDF6E1' : '#EEF3F7', tFg: cfg.active[k] ? '#3B6E0F' : '#3D5566', onToggle: () => this.setCfg(c => { c.active[k] = !c.active[k]; }) })),
-          stockInfo: gdb.stock.reserved + ' sorteados · ' + gdb.stock.redeemed + ' resgatados · ' + G.giftAvailable() + ' disponíveis',
-          condRows: ['DISCOUNT_5', 'SETUP_10'].map(k => ({ label: 'Condições · ' + TY[k].label, value: (cfg.conditions || {})[k] || '', onChange: e => this.setCfg(c => { c.conditions = { ...(c.conditions || {}), [k]: e.target.value }; }) })),
-          onGiftName: e => this.setCfg(c => { c.giftName = e.target.value; }),
-          onStock: e => this.setCfg(c => { c.stockInitial = e.target.value; }),
-          onDays: e => this.setCfg(c => { c.couponDays = e.target.value; }),
-          onReset: e => this.setCfg(c => { c.resetSeconds = e.target.value; }),
-          onPrizeReset: e => this.setCfg(c => { c.prizeResetSeconds = e.target.value; }),
-          onPin: e => this.setCfg(c => { c.pin = e.target.value.replace(/\D/g, '').slice(0, 8); }),
-          saveBg: okSum ? '#0d2231' : '#9FB4C4', saveCursor: okSum ? 'pointer' : 'not-allowed',
-          saveCfg: () => {
-            if (!okSum) return this.setState({ cfgMsg: { ok: false, text: 'A soma das probabilidades precisa ser exatamente 100%.' } });
-            if (String(cfg.pin || '').length < 4) return this.setState({ cfgMsg: { ok: false, text: 'O PIN precisa ter ao menos 4 dígitos.' } });
-            try { const { stockInitial, ...rest } = cfg; G.saveConfig({ ...rest, prizeResetSeconds: Number(rest.prizeResetSeconds) || 60 }, stockInitial); this.setState({ cfgMsg: { ok: true, text: 'Regras salvas.' } }); } catch (e) { this.setState({ cfgMsg: { ok: false, text: e.message } }); }
-          }
-        });
-      }
+      const sy = window.SICSync ? window.SICSync.status() : { enabled: false, pending: 0 };
+      const fmtT = v => v ? new Date(v).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+      const fmtD = v => v ? v.split('-').reverse().join('/') : 'não definido';
+      const c = gdb.config;
+      Object.assign(adminVals, {
+        syncStats: [
+          { label: 'Conexão', value: sy.enabled ? (sy.lastError ? 'Com falha' : 'Ativa') : 'Modo local (sem planilha)', color: sy.enabled && !sy.lastError ? '#4E8A15' : '#C0442F' },
+          { label: 'Pendentes de envio', value: String(sy.pending), color: sy.pending ? '#7A5B00' : '#0d2231' },
+          { label: 'Último envio', value: fmtT(sy.lastSentAt), color: '#0d2231' },
+          { label: 'Regras atualizadas', value: fmtT(sy.lastConfigAt), color: '#0d2231' }
+        ],
+        hasSyncErr: !!sy.lastError, syncErr: sy.lastError || '',
+        syncNow: () => { if (window.SICSync) { window.SICSync.flush(); window.SICSync.pullConfig(); } },
+        dayLabel: G.dayLabel() + ' · ' + new Date().toLocaleDateString('pt-BR'),
+        prizeStatusRows: G.prizeStatus().map(p => {
+          const none = p.kind === 'none', hasStock = !(p.stock === null || p.stock === undefined || p.stock === '');
+          const st = none ? 'Recebe o restante' : p.available ? 'No sorteio' : p.why;
+          const col = none ? ['#EEF3F7', '#3D5566'] : p.available ? ['#EDF6E1', '#3B6E0F'] : ['#FBEDEA', '#9E3423'];
+          return { name: p.name, sub: p.kind === 'coupon' ? 'Cupom de ' + p.pct + '%' : p.kind === 'gift' ? 'Brinde físico' + (p.partner ? ' · ' + p.partner : '') : 'Inclui a chance dos indisponíveis',
+            prob: String(p.prob).replace('.', ',') + '%', cap: none ? '—' : p.capToday === null ? 'sem teto' : String(p.capToday), today: String(p.usedToday),
+            total: none ? String(p.usedTotal) : p.usedTotal + (hasStock ? ' de ' + p.stock : ' · sem limite'), st, stBg: col[0], stFg: col[1] };
+        }),
+        ruleRows: [
+          { label: 'Dia 1 do evento', value: fmtD(c.day1) }, { label: 'Dia 2 do evento', value: fmtD(c.day2) },
+          { label: 'Validade do cupom', value: c.couponDays + ' dias' }, { label: 'Reinício sem prêmio', value: c.resetSeconds + ' s' },
+          { label: 'Reinício com prêmio', value: c.prizeResetSeconds + ' s' }, { label: 'Volta ao início por inatividade', value: c.idleSeconds + ' s' },
+          { label: 'Última alteração no painel', value: c.updatedAt ? fmtT(c.updatedAt) + (c.updatedBy ? ' · ' + c.updatedBy : '') : '—' }
+        ]
+      });
       adminVals.msgCount = gdb.messages.filter(m => m.active).length + ' ativas de ' + gdb.messages.length;
-      adminVals.msgRows = gdb.messages.map(m => { const uses = G.messageUses(m.id); return { ...m, op: m.active ? 1 : 0.55,
-        onCat: e => this.safe(() => G.updateMessage(m.id, { category: e.target.value })),
-        onTitle: e => this.safe(() => G.updateMessage(m.id, { title: e.target.value })),
-        onProblem: e => this.safe(() => G.updateMessage(m.id, { problem: e.target.value })),
-        onSolution: e => this.safe(() => G.updateMessage(m.id, { solution: e.target.value })),
-        onToggle: () => this.safe(() => G.updateMessage(m.id, { active: !m.active })),
-        tLabel: m.active ? 'Ativa' : 'Inativa', tBg: m.active ? '#EDF6E1' : '#EEF3F7', tFg: m.active ? '#3B6E0F' : '#3D5566',
-        delLabel: uses ? 'Exibida ' + uses + 'x' : 'Excluir', delColor: uses ? '#9FB4C4' : '#C0442F',
-        onDelete: () => { if (!uses) this.safe(() => G.deleteMessage(m.id)); } }; });
-      adminVals.addMsg = () => this.safe(() => G.addMessage());
+      adminVals.msgRows = gdb.messages.map(m => { const uses = G.messageUses(m.id); return { id: m.id, category: m.category, title: m.title, problem: m.problem, op: m.active ? 1 : 0.5, uses: (m.active ? '' : 'inativa · ') + uses + 'x' }; });
     }
     return {
       ...adminVals,
@@ -902,12 +899,10 @@ class Component extends DCLogic {
       onLoginPin: e => this.setState({ loginPin: e.target.value.replace(/\D/g, '').slice(0, 8), loginErr: '' }),
       doLogin: () => this.login(), onLoginEnter: e => { if (e.key === 'Enter') this.login(); },
       logout: () => { this.setState({ operator: '', loginPin: '', screen: 'login' }); },
-      tabs: [['leads', 'Leads'], ['game', 'Raspadinha'], ['redeem', 'Resgates'], ['config', 'Configurações']].map(([k, label]) => ({ label, bg: adminTab === k ? '#0d2231' : '#ffffff', fg: adminTab === k ? '#ffffff' : '#0d2231', onClick: () => this.setState({ adminTab: k, cfg: k === 'config' ? this.draftFrom() : this.state.cfg, cfgMsg: null, redeemMsg: null, msgErr: '' }) })),
-      tabLeads: adminTab === 'leads', tabGame: adminTab === 'game', tabRedeem: adminTab === 'redeem', tabConfig: adminTab === 'config' && !!cfg,
+      tabs: [['leads', 'Leads'], ['game', 'Raspadinha'], ['redeem', 'Resgates'], ['config', 'Configurações']].map(([k, label]) => ({ label, bg: adminTab === k ? '#0d2231' : '#ffffff', fg: adminTab === k ? '#ffffff' : '#0d2231', onClick: () => this.setState({ adminTab: k, redeemMsg: null }) })),
+      tabLeads: adminTab === 'leads', tabGame: adminTab === 'game', tabRedeem: adminTab === 'redeem', tabConfig: adminTab === 'config',
       search, onSearch: e => this.setState({ search: e.target.value, redeemMsg: null }),
       hasRedeemMsg: !!redeemMsg, redeemMsgText: redeemMsg ? redeemMsg.text : '', redeemMsgBg: redeemMsg && redeemMsg.ok ? '#EDF6E1' : '#FBEDEA', redeemMsgFg: redeemMsg && redeemMsg.ok ? '#3B6E0F' : '#9E3423',
-      cfg: cfg || {}, hasCfgMsg: !!cfgMsg, cfgMsgText: cfgMsg ? cfgMsg.text : '', cfgMsgColor: cfgMsg && cfgMsg.ok ? '#4E8A15' : '#C0442F',
-      hasMsgErr: !!this.state.msgErr, msgErr: this.state.msgErr,
       exportXlsx: () => this.exportXlsx(),
       isWelcome: screen === 'welcome', isForm: screen === 'form', isDone: screen === 'done', isAdmin: screen === 'admin',
       s0: step === 0, s1: step === 1, s2: step === 2, s3: step === 3, s4: step === 4, s5: step === 5, s6: step === 6, s7: step === 7, s8: step === 8,
@@ -956,7 +951,7 @@ class Component extends DCLogic {
       firstName: this.state.playerName,
       countdown, reset: () => this.reset(),
       openAdmin: () => { clearInterval(this.timer); this.setState({ screen: this.state.operator ? 'admin' : 'login', confirmClear: false, loginPin: '', loginErr: '' }); },
-      closeAdmin: () => this.reset(),
+      closeAdmin: () => { this.setState({ operator: '' }); this.reset(); },
       exportCsv: () => this.exportCsv(),
       clearAll: () => {
         if (!confirmClear) return this.setState({ confirmClear: true });

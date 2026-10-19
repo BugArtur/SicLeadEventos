@@ -1,0 +1,5 @@
+dev/emails/
+dev/API_DOWN
+node_modules/
+.vercel
+package-lock.json
