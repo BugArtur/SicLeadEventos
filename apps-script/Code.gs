@@ -114,23 +114,42 @@ function ensureSheet_(ss, name, headers) {
   return sh;
 }
 
+/* Fórmulas são gravadas com setFormulas: o Apps Script aceita a sintaxe em inglês (vírgula) em qualquer idioma da planilha.
+   Gravar com setValues faz a planilha em português (que usa ponto e vírgula) mostrar #ERROR!. */
+var P_ = "'Participações'!";
+
 function ensureResumo_(ss) {
   var sh = ss.getSheetByName('Resumo');
   if (sh) return;
   sh = ss.insertSheet('Resumo');
-  var rows = [['Resumo do evento', '']];
+  var rows = [['Resumo do evento', '']], forms = [['']];
   function block(title, labels, f) {
-    rows.push(['', '']); rows.push([title, 'Total']);
-    labels.forEach(function (l) { rows.push([l, f(rows.length + 1)]); });
+    rows.push(['', '']); forms.push(['']);
+    rows.push([title, 'Total']); forms.push(['']);
+    labels.forEach(function (l) { rows.push([l, '']); forms.push([f(rows.length)]); });
   }
   block('Leads', ['Dia 1', 'Dia 2', 'Ensaio'], function (i) { return '=COUNTIF(Leads!$C:$C,A' + i + ')'; });
   block('Leads por ramo', ['Agropecuário', 'Consumo', 'Crédito', 'Infraestrutura', 'Saúde', 'Trabalho, produção de bens e serviços', 'Transporte'], function (i) { return '=COUNTIF(Leads!$F:$F,A' + i + ')'; });
-  block('Resultados da raspadinha', ['Premiado', 'Não premiado'], function (i) { return '=COUNTIF(Participações!$F:$F,A' + i + ')'; });
-  block('Resgates', ['Pendente', 'Resgatado'], function (i) { return '=COUNTIF(Participações!$L:$L,A' + i + ')'; });
-  block('E-mails', ['Enviado', 'Aguardando sorteio'], function (i) { return '=COUNTIF(Leads!$O:$O,A' + i + ')'; });
+  block('Resultados da raspadinha', ['Premiado', 'Não premiado'], function (i) { return '=COUNTIF(' + P_ + '$F:$F,A' + i + ')'; });
+  block('Resgates', ['Pendente', 'Resgatado'], function (i) { return '=COUNTIF(' + P_ + '$L:$L,A' + i + ')'; });
+  block('E-mails', ['Enviado', 'Aguardando', 'Erro'], function (i) { return '=COUNTIF(Leads!$O:$O,A' + i + '&"*")'; });
   sh.getRange(1, 1, rows.length, 2).setValues(rows);
+  forms.forEach(function (f, i) { if (f[0]) sh.getRange(i + 1, 2).setFormula(f[0]); });
   sh.getRange(1, 1).setFontWeight('bold').setFontSize(12);
   sh.setColumnWidth(1, 300);
+}
+
+/** Rode UMA vez se a planilha mostrar #ERROR! nas colunas calculadas (Prêmios, Mensagens, Resumo). Não mexe em leads nem em regras. */
+function corrigirFormulas() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var pr = ss.getSheetByName('Prêmios'), n = pr.getLastRow() - 1;
+  if (n > 0) writePrizeFormulas_(pr, n);
+  var ms = ss.getSheetByName('Mensagens'), m = ms.getLastRow() - 1;
+  if (m > 0) writeMessageFormulas_(ms, m);
+  var rs = ss.getSheetByName('Resumo');
+  if (rs) ss.deleteSheet(rs);
+  ensureResumo_(ss);
+  Logger.log('Fórmulas corrigidas em Prêmios (' + n + ' linhas), Mensagens (' + m + ' linhas) e Resumo.');
 }
 
 /* ============================== HTTP ============================== */
@@ -605,27 +624,39 @@ function writePrizeRows_(sh, rows) {
   var last = sh.getLastRow();
   if (last > 1) sh.getRange(2, 1, last - 1, SHEETS['Prêmios'].length).clearContent();
   if (!rows.length) return;
-  var data = rows.map(function (p, i) {
+  sh.getRange(2, 1, rows.length, 11).setValues(rows.map(function (p) { return p.slice(0, 11); }));
+  sh.getRange(2, 16, rows.length, 2).setValues(rows.map(function (p) { return [p[11], p[12]]; }));
+  writePrizeFormulas_(sh, rows.length);
+  sh.getRange(2, 5, rows.length, 1).setNumberFormat('0%');
+  sh.getRange(2, 7, rows.length, 1).setNumberFormat('0.0%');
+}
+
+function writePrizeFormulas_(sh, n) {
+  var f = [];
+  for (var i = 0; i < n; i++) {
     var r = i + 2;
-    return p.slice(0, 11).concat([
-      '=COUNTIFS(Participações!$G:$G,$A' + r + ',Participações!$E:$E,"Dia 1")',
-      '=COUNTIFS(Participações!$G:$G,$A' + r + ',Participações!$E:$E,"Dia 2")',
-      '=COUNTIF(Participações!$G:$G,$A' + r + ')',
-      '=IF(J' + r + '="","sem limite",J' + r + '-N' + r + ')',
-      p[11], p[12]
+    f.push([
+      '=COUNTIFS(' + P_ + '$G:$G,$A' + r + ',' + P_ + '$E:$E,"Dia 1")',
+      '=COUNTIFS(' + P_ + '$G:$G,$A' + r + ',' + P_ + '$E:$E,"Dia 2")',
+      '=COUNTIF(' + P_ + '$G:$G,$A' + r + ')',
+      '=IF(J' + r + '="","sem limite",J' + r + '-N' + r + ')'
     ]);
-  });
-  sh.getRange(2, 1, data.length, data[0].length).setValues(data);
-  sh.getRange(2, 5, data.length, 1).setNumberFormat('0%');
-  sh.getRange(2, 7, data.length, 1).setNumberFormat('0.0%');
+  }
+  sh.getRange(2, 12, n, 4).setFormulas(f);
 }
 
 function writeMessageRows_(sh, rows) {
   var last = sh.getLastRow();
   if (last > 1) sh.getRange(2, 1, last - 1, SHEETS.Mensagens.length).clearContent();
   if (!rows.length) return;
-  var data = rows.map(function (m, i) { return m.slice(0, 6).concat(['=COUNTIF(Participações!$J:$J,A' + (i + 2) + '&" ·*")']); });
-  sh.getRange(2, 1, data.length, 7).setValues(data);
+  sh.getRange(2, 1, rows.length, 6).setValues(rows.map(function (m) { return m.slice(0, 6); }));
+  writeMessageFormulas_(sh, rows.length);
+}
+
+function writeMessageFormulas_(sh, n) {
+  var f = [];
+  for (var i = 0; i < n; i++) f.push(['=COUNTIF(' + P_ + '$J:$J,A' + (i + 2) + '&" ·*")']);
+  sh.getRange(2, 7, n, 1).setFormulas(f);
 }
 
 function randomKey_(n) {

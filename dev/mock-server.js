@@ -23,6 +23,7 @@ function makeSheet(name) {
         getValue() { return rg.getValues()[0][0]; },
         setValues(v) { for (let i = 0; i < nr; i++) { rows[r - 1 + i] = rows[r - 1 + i] || []; for (let j = 0; j < nc; j++) rows[r - 1 + i][c - 1 + j] = v[i][j]; } return rg; },
         setValue(v) { return rg.setValues([[v]]); },
+        setFormulas(v) { return rg.setValues(v); }, setFormula(v) { return rg.setValues([[v]]); },
         clearContent() { for (let i = 0; i < nr; i++) for (let j = 0; j < nc; j++) if (rows[r - 1 + i]) rows[r - 1 + i][c - 1 + j] = ''; return rg; },
         setNumberFormat: () => rg, setFontWeight: () => rg, setFontColor: () => rg, setBackground: () => rg, setFontSize: () => rg
       };
