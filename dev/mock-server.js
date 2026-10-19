@@ -24,6 +24,7 @@ function makeSheet(name) {
         setValues(v) { for (let i = 0; i < nr; i++) { rows[r - 1 + i] = rows[r - 1 + i] || []; for (let j = 0; j < nc; j++) rows[r - 1 + i][c - 1 + j] = v[i][j]; } return rg; },
         setValue(v) { return rg.setValues([[v]]); },
         setFormulas(v) { return rg.setValues(v); }, setFormula(v) { return rg.setValues([[v]]); },
+        getDisplayValues() { return rg.getValues().map(r => r.map(v => (process.env.SEMI === '1' && /^=.*,/.test(v)) ? '#ERROR!' : String(v))); },
         clearContent() { for (let i = 0; i < nr; i++) for (let j = 0; j < nc; j++) if (rows[r - 1 + i]) rows[r - 1 + i][c - 1 + j] = ''; return rg; },
         setNumberFormat: () => rg, setFontWeight: () => rg, setFontColor: () => rg, setBackground: () => rg, setFontSize: () => rg
       };
@@ -47,10 +48,10 @@ const fmt = (d, tz, f) => {
 };
 let mailCount = 0;
 const G = {
-  SpreadsheetApp: { getActiveSpreadsheet: () => ss },
+  SpreadsheetApp: { getActiveSpreadsheet: () => ss, flush() {} },
   LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
   CacheService: { getScriptCache: () => ({ get: k => cache[k] ?? null, put: (k, v) => { cache[k] = v; } }) },
-  PropertiesService: { getScriptProperties: () => ({ getProperty: k => props[k] ?? null, setProperty: (k, v) => { props[k] = v; } }) },
+  PropertiesService: { getScriptProperties: () => ({ getProperty: k => props[k] ?? null, setProperty: (k, v) => { props[k] = v; }, deleteProperty: k => { delete props[k]; } }) },
   MailApp: {
     getRemainingDailyQuota: () => 1500 - mailCount,
     sendEmail(o) {

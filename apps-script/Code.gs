@@ -114,9 +114,22 @@ function ensureSheet_(ss, name, headers) {
   return sh;
 }
 
-/* Fórmulas são gravadas com setFormulas: o Apps Script aceita a sintaxe em inglês (vírgula) em qualquer idioma da planilha.
-   Gravar com setValues faz a planilha em português (que usa ponto e vírgula) mostrar #ERROR!. */
+/* Colunas calculadas (só para leitura humana; o sistema não depende delas).
+   Planilhas em português separam argumentos com ponto e vírgula. setF_ grava com vírgula e, se a planilha
+   acusar erro, regrava com ponto e vírgula; a escolha fica guardada em FORMULA_SEP. */
 var P_ = "'Participações'!";
+
+function semi_(f) { return f.map(function (r) { return r.map(function (x) { return x ? String(x).replace(/,/g, ';') : x; }); }); }
+function setF_(range, f) {
+  var props = PropertiesService.getScriptProperties(), sep = props.getProperty('FORMULA_SEP');
+  if (sep === ';') return range.setFormulas(semi_(f));
+  range.setFormulas(f);
+  if (sep === ',') return;
+  SpreadsheetApp.flush();
+  var bad = range.getDisplayValues().some(function (r) { return r.some(function (v) { return /^#ERR/i.test(v); }); });
+  if (bad) { range.setFormulas(semi_(f)); props.setProperty('FORMULA_SEP', ';'); }
+  else props.setProperty('FORMULA_SEP', ',');
+}
 
 function ensureResumo_(ss) {
   var sh = ss.getSheetByName('Resumo');
@@ -134,13 +147,14 @@ function ensureResumo_(ss) {
   block('Resgates', ['Pendente', 'Resgatado'], function (i) { return '=COUNTIF(' + P_ + '$L:$L,A' + i + ')'; });
   block('E-mails', ['Enviado', 'Aguardando', 'Erro'], function (i) { return '=COUNTIF(Leads!$O:$O,A' + i + '&"*")'; });
   sh.getRange(1, 1, rows.length, 2).setValues(rows);
-  forms.forEach(function (f, i) { if (f[0]) sh.getRange(i + 1, 2).setFormula(f[0]); });
+  forms.forEach(function (f, i) { if (f[0]) setF_(sh.getRange(i + 1, 2), [f]); });
   sh.getRange(1, 1).setFontWeight('bold').setFontSize(12);
   sh.setColumnWidth(1, 300);
 }
 
 /** Rode UMA vez se a planilha mostrar #ERROR! nas colunas calculadas (Prêmios, Mensagens, Resumo). Não mexe em leads nem em regras. */
 function corrigirFormulas() {
+  PropertiesService.getScriptProperties().deleteProperty('FORMULA_SEP'); // detecta de novo o separador desta planilha
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var pr = ss.getSheetByName('Prêmios'), n = pr.getLastRow() - 1;
   if (n > 0) writePrizeFormulas_(pr, n);
@@ -149,7 +163,7 @@ function corrigirFormulas() {
   var rs = ss.getSheetByName('Resumo');
   if (rs) ss.deleteSheet(rs);
   ensureResumo_(ss);
-  Logger.log('Fórmulas corrigidas em Prêmios (' + n + ' linhas), Mensagens (' + m + ' linhas) e Resumo.');
+  Logger.log('Fórmulas corrigidas em Prêmios (' + n + ' linhas), Mensagens (' + m + ' linhas) e Resumo. Separador: ' + PropertiesService.getScriptProperties().getProperty('FORMULA_SEP'));
 }
 
 /* ============================== HTTP ============================== */
@@ -642,7 +656,7 @@ function writePrizeFormulas_(sh, n) {
       '=IF(J' + r + '="","sem limite",J' + r + '-N' + r + ')'
     ]);
   }
-  sh.getRange(2, 12, n, 4).setFormulas(f);
+  setF_(sh.getRange(2, 12, n, 4), f);
 }
 
 function writeMessageRows_(sh, rows) {
@@ -656,7 +670,7 @@ function writeMessageRows_(sh, rows) {
 function writeMessageFormulas_(sh, n) {
   var f = [];
   for (var i = 0; i < n; i++) f.push(['=COUNTIF(' + P_ + '$J:$J,A' + (i + 2) + '&" ·*")']);
-  sh.getRange(2, 7, n, 1).setFormulas(f);
+  setF_(sh.getRange(2, 7, n, 1), f);
 }
 
 function randomKey_(n) {
