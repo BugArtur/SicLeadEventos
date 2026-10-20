@@ -19,6 +19,12 @@ INTERNET
 - Abra o totem uma vez com internet antes do evento para guardar mapa e cidades em cache.
 - Use sempre o mesmo navegador no totem, fora do modo anônimo, e não limpe os dados de navegação.
 
+CELULAR / QR CODE DA PALESTRA
+- Link do QR: https://sic-lead-eventos.vercel.app/?origem=qr  (leads marcados como "Palestra (QR)").
+- Celular (ou link do QR): sem ícone da equipe, sem reinício automático, lista de estados abaixo do mapa.
+- Celular também sorteia brindes; a retirada de quem ganhou fora do totem é registrada no /painel
+  (Prêmios e cupons > Registrar retirada).
+
 ACESSO
 - Painel web: usuário SIC; senha em Propriedades do Script (PAINEL_SENHA), combinada com a equipe.
 - Painel "Equipe" no totem: PIN definido no /painel (Configurações). Sair do painel encerra a sessão.

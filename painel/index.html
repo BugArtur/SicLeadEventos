@@ -362,6 +362,7 @@
       </div>
     </div>
     <div class="grid halves">
+      <div class="card"><h2>Leads por origem</h2>${hbars(['Totem', 'Palestra (QR)', 'Celular'].map(o => [o, leads.filter(l => (l.origem || 'Totem') === o).length]), 'Sem leads ainda.')}</div>
       <div class="card"><h2>Leads por ramo</h2>${hbars(ramo, 'Sem leads ainda.')}</div>
       <div class="card"><h2>Tamanho da cooperativa (cooperados)</h2>${hbars(faixa, 'Sem leads ainda.')}</div>
     </div>
@@ -402,7 +403,7 @@
       <div class="head"><h2>${list.length} ${list.length === 1 ? 'lead' : 'leads'}</h2><input class="input" data-search="q" style="max-width:420px" placeholder="Buscar por nome, cooperativa, cidade, e-mail…" value="${esc(S.q)}"></div>
       ${list.length ? `<div class="tbl-wrap"><table><thead><tr><th>Data/hora</th><th>Representante</th><th>Cooperativa</th><th>Cooperados</th><th>Sede</th><th>Atuação</th><th>Contato</th><th>Raspadinha</th><th>E-mail</th></tr></thead><tbody>
       ${list.map(l => { const g = gByLead[l.id]; const es = String(l.email_status || ''); return `<tr>
-        <td class="nowrap">${fmtDT(l.ts)}<div class="sub">${esc(l.day)}</div></td>
+        <td class="nowrap">${fmtDT(l.ts)}<div class="sub">${esc(l.day)} · ${esc(l.origem || 'Totem')}</div></td>
         <td><b>${esc(l.nome)}</b></td>
         <td>${esc(l.cooperativa)}<div class="sub">${esc(l.ramo)}</div></td>
         <td class="nowrap">${esc(l.cooperados)}</td>
@@ -532,6 +533,7 @@
     if (t.dataset.tabGo) { S.tab = t.dataset.tabGo; return render(); }
     if (t.dataset.map) { S.mapMode = t.dataset.map; return render(); }
     if (t.id === 'sendTest') return sendTest();
+    if (t.dataset.redeem) return redeemGift(t.dataset.redeem, t);
     if (!isEdit()) return;
     const d = draft();
     if (t.dataset.sday) { S.setupDay = Number(t.dataset.sday); return render(); }
@@ -570,12 +572,13 @@
     const qn = S.q2.trim().toLowerCase();
     const games = D.games.filter(g => g.result === 'Premiado').slice().reverse().filter(g => !qn || [g.id, g.coupon, g.nome, g.label].some(v => String(v || '').toLowerCase().includes(qn)));
     const coupons = D.coupons.slice().reverse().filter(c => !qn || [c.code, c.nome, c.gameId].some(v => String(v || '').toLowerCase().includes(qn)));
+    const leadOrig = {}; D.leads.forEach(l => leadOrig[l.id] = l.origem || 'Totem');
     const cst = c => { const exp = c.status === 'Disponível' && c.validUntil && new Date(c.validUntil) < new Date(); return exp ? 'Expirado' : c.status; };
     return `<div class="grid" style="gap:16px">
       <div class="card"><div class="head"><h2>Prêmios sorteados · ${games.length}</h2><input class="input" data-search="q2" style="max-width:420px" placeholder="Buscar por código, participação ou nome" value="${esc(S.q2)}"></div>
-      <span class="hint">A retirada de brindes é registrada no painel "Equipe" do totem.</span>
+      <span class="hint">Brindes ganhos no totem: a retirada é registrada no painel "Equipe" do totem. Brindes ganhos pelo celular/QR: registre aqui em "Registrar retirada".</span>
       ${games.length ? `<div class="tbl-wrap"><table><thead><tr><th>Participação</th><th>Visitante</th><th>Prêmio</th><th>Sorteado</th><th>Status</th><th>Retirada</th></tr></thead><tbody>
-      ${games.map(g => `<tr><td class="nowrap"><b>${esc(g.coupon || g.id)}</b><div class="sub">${esc(g.id)}</div></td><td>${esc(g.nome)}</td><td>${esc(g.label)}</td><td class="nowrap">${fmtDT(g.drawnAt)}<div class="sub">${esc(g.day)}</div></td><td><span class="pill ${g.redeem === 'Resgatado' ? 'ok' : 'warn'}">${esc(g.redeem)}</span></td><td class="nowrap">${g.redeemedAt ? fmtDT(g.redeemedAt) + '<div class="sub">' + esc(g.operator) + '</div>' : '—'}</td></tr>`).join('')}
+      ${games.map(g => { const o = leadOrig[g.leadId] || 'Totem', canRedeem = g.redeem === 'Pendente' && !g.coupon && o !== 'Totem'; return `<tr><td class="nowrap"><b>${esc(g.coupon || g.id)}</b><div class="sub">${esc(g.id)}</div></td><td>${esc(g.nome)}</td><td>${esc(g.label)}</td><td class="nowrap">${fmtDT(g.drawnAt)}<div class="sub">${esc(g.day)} · ${esc(o)}</div></td><td><span class="pill ${g.redeem === 'Resgatado' ? 'ok' : 'warn'}">${esc(g.redeem)}</span></td><td class="nowrap">${g.redeemedAt ? fmtDT(g.redeemedAt) + '<div class="sub">' + esc(g.operator) + '</div>' : canRedeem ? `<button class="btn small" data-redeem="${esc(g.id)}">Registrar retirada</button>` : '—'}</td></tr>`; }).join('')}
       </tbody></table></div>` : '<div class="empty">Nenhum prêmio sorteado ainda.</div>'}</div>
       <div class="card"><h2>Cupons de desconto · ${coupons.length}</h2>
       ${coupons.length ? `<div class="tbl-wrap"><table><thead><tr><th>Código</th><th>Visitante</th><th>Emitido</th><th>Válido até</th><th>Status</th><th>Enviado por e-mail</th></tr></thead><tbody>
@@ -605,6 +608,13 @@
         ${err.length ? `<div class="tbl-wrap"><table><thead><tr><th>Lead</th><th>Erro</th></tr></thead><tbody>${err.map(l => `<tr><td>${esc(l.nome)}<div class="sub">${esc(l.email)}</div></td><td>${esc(l.email_status)}</td></tr>`).join('')}</tbody></table></div>` : ''}
       </div>
     </div>`;
+  }
+  async function redeemGift(gameId, btn) {
+    const g = S.data.games.find(x => x.id === gameId);
+    if (!g || !confirm('Registrar a retirada do brinde de ' + g.nome + ' (' + g.id + ')?')) return;
+    btn.disabled = true;
+    try { S.data = await api('redeem', { gameId }); toast('Retirada registrada: ' + g.nome + '.'); render(); }
+    catch (err) { toast(err.message, true); btn.disabled = false; }
   }
   async function sendTest() {
     const to = $('testTo').value.trim();

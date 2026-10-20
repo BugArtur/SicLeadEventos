@@ -17,7 +17,7 @@ var TZ = 'America/Sao_Paulo';
 var TOKEN_HORAS = 6;
 
 var SHEETS = {
-  Leads: ['LeadId', 'Data/hora', 'Dia do evento', 'Representante', 'Cooperativa', 'Ramo', 'Cooperados', 'UF sede', 'Cidade sede', 'Estados de atuação', 'Telefone', 'E-mail', 'Consentimento LGPD', 'Recebido na planilha', 'E-mail de boas-vindas'],
+  Leads: ['LeadId', 'Data/hora', 'Dia do evento', 'Representante', 'Cooperativa', 'Ramo', 'Cooperados', 'UF sede', 'Cidade sede', 'Estados de atuação', 'Telefone', 'E-mail', 'Consentimento LGPD', 'Recebido na planilha', 'E-mail de boas-vindas', 'Origem'],
   'Participações': ['GameId', 'LeadId', 'Representante', 'Sorteado em', 'Dia do evento', 'Resultado', 'PrêmioId', 'Prêmio', 'Cupom', 'Mensagem exibida', 'Revelado em', 'Status do resgate', 'Resgatado em', 'Operador'],
   Cupons: ['Código', 'PrêmioId', 'Desconto', 'LeadId', 'GameId', 'Representante', 'Emitido em', 'Válido até', 'Status', 'Utilizado em', 'Operador', 'Enviado por e-mail'],
   'Prêmios': ['PrêmioId', 'Nome', 'Tipo', 'Parceiro', 'Desconto', 'Prefixo do cupom', 'Chance', 'Teto Dia 1', 'Teto Dia 2', 'Estoque total', 'Ativo', 'Saíram Dia 1', 'Saíram Dia 2', 'Saíram no total', 'Restante do estoque', 'Descrição', 'Condições do cupom'],
@@ -181,12 +181,13 @@ function doPost(e) {
       return json_(a === 'config' ? actionConfig_() : actionEvents_(req.events || []));
     }
     if (a === 'login') return json_(actionLogin_(req));
-    if (a === 'dashboard' || a === 'saveSetup' || a === 'testEmail' || a === 'fixFormulas') {
+    if (a === 'dashboard' || a === 'saveSetup' || a === 'testEmail' || a === 'fixFormulas' || a === 'redeem') {
       var who = checkToken_(req.token);
       if (!who) return json_({ ok: false, error: 'Sessão expirada', auth: false });
       rememberSite_(req.site);
       if (a === 'dashboard') return json_(actionDashboard_());
       if (a === 'saveSetup') return json_(actionSaveSetup_(req, who));
+      if (a === 'redeem') return json_(actionRedeem_(req, who));
       if (a === 'fixFormulas') { var lock = LockService.getScriptLock(); lock.waitLock(25000); try { return json_({ ok: true, log: corrigirFormulas() }); } finally { lock.releaseLock(); } }
       return json_(actionTestEmail_(req));
     }
@@ -340,8 +341,9 @@ function handleEvent_(ss, ev, ctx) {
   if (ev.kind === 'lead') {
     if (findRow_(ss, 'Leads', d.leadId, ctx)) return 'já existia';
     var sh = ss.getSheetByName('Leads');
+    if (sh.getRange(1, 16).getValue() !== 'Origem') sh.getRange(1, 16).setValue('Origem').setFontWeight('bold').setFontColor('#ffffff').setBackground('#0d2231');
     sh.appendRow([d.leadId, new Date(d.ts), d.dayLabel || '', d.nome, d.cooperativa, d.ramo, d.cooperados, d.uf, d.cidade, (d.atuacao || []).join(', '),
-      d.telefone, d.email, d.consent ? 'Sim' : 'Não', new Date(), d.noGame ? 'Aguardando envio' : 'Aguardando sorteio']);
+      d.telefone, d.email, d.consent ? 'Sim' : 'Não', new Date(), d.noGame ? 'Aguardando envio' : 'Aguardando sorteio', d.origem || 'Totem']);
     remember_(ctx, 'Leads', d.leadId, sh.getLastRow());
     if (d.noGame) sendForLead_(ss, d.leadId, null, ctx);
     return d.nome + ' · ' + d.cooperativa;
@@ -548,7 +550,7 @@ function buildEmailHtml_(first, prize, cfg) {
 
 function actionDashboard_() {
   var leads = rows_('Leads').map(function (r) {
-    return { id: r[0], ts: iso_(r[1]), day: r[2], nome: r[3], cooperativa: r[4], ramo: r[5], cooperados: r[6], uf: r[7], cidade: r[8], atuacao: r[9], telefone: r[10], email: r[11], consent: r[12], email_status: r[14] };
+    return { id: r[0], ts: iso_(r[1]), day: r[2], nome: r[3], cooperativa: r[4], ramo: r[5], cooperados: r[6], uf: r[7], cidade: r[8], atuacao: r[9], telefone: r[10], email: r[11], consent: r[12], email_status: r[14], origem: r[15] || 'Totem' };
   });
   var games = rows_('Participações').map(function (r) {
     return { id: r[0], leadId: r[1], nome: r[2], drawnAt: iso_(r[3]), day: r[4], result: r[5], type: r[6], label: r[7], coupon: r[8], message: r[9], revealedAt: iso_(r[10]), redeem: r[11], redeemedAt: iso_(r[12]), operator: r[13] };
@@ -618,6 +620,24 @@ function actionSaveSetup_(req, who) {
       }));
     }
     ss.getSheetByName('Log').appendRow([new Date(), 'Configuração', '', '', 'Setup salvo pelo painel', 'painel · ' + who, 'CFG-' + Utilities.getUuid()]);
+  } finally { lock.releaseLock(); }
+  return actionDashboard_();
+}
+
+/** Retirada de brinde registrada pelo /painel (para quem ganhou pelo celular/QR, fora do totem). */
+function actionRedeem_(req, who) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(25000);
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet(), sh = ss.getSheetByName('Participações');
+    var row = findRow_(ss, 'Participações', String(req.gameId || ''), { idx: {} });
+    if (!row) return { ok: false, error: 'Participação não encontrada.' };
+    var v = sh.getRange(row, 1, 1, 14).getValues()[0];
+    if (v[5] !== 'Premiado' || v[8]) return { ok: false, error: 'Esta participação não é de brinde físico.' };
+    if (v[11] === 'Resgatado') return { ok: false, error: 'Brinde já retirado em ' + Utilities.formatDate(new Date(v[12]), TZ, 'dd/MM HH:mm') + ' por ' + v[13] + '.' };
+    var at = new Date(), op = who + ' (painel)';
+    sh.getRange(row, 12, 1, 3).setValues([['Resgatado', at, op]]);
+    ss.getSheetByName('Log').appendRow([at, 'Resgate', v[0], v[1], v[7] + ' · ' + op, 'painel', 'RED-' + Utilities.getUuid()]);
   } finally { lock.releaseLock(); }
   return actionDashboard_();
 }
