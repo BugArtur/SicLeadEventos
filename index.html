@@ -238,6 +238,25 @@
     </div>
   </sc-if>
 
+  <sc-if value="{{ isFinal }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Final" style="min-height: 100vh; min-height: 100dvh; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: clamp(24px, 6vw, 48px) clamp(20px, 6vw, 48px) calc(clamp(24px, 6vw, 48px) + env(safe-area-inset-bottom)); box-sizing: border-box; text-align: center; overflow: hidden;">
+      <div style="position: absolute; left: 50%; top: 40%; width: 700px; height: 700px; margin: -350px 0 0 -350px; border-radius: 50%; background: radial-gradient(circle, rgba(141,198,63,0.22), transparent 60%); pointer-events: none;"></div>
+      <div style="position: relative; width: 100%; max-width: 520px; display: flex; flex-direction: column; align-items: center; gap: clamp(18px, 4vw, 26px); animation: rise 0.5s ease both;">
+        <img src="assets/logo-tag-branca.png" alt="SIC – sistema integrado de cooperativas" style="height: clamp(40px, 9vw, 56px);">
+        <div style="width: clamp(76px, 18vw, 104px); height: clamp(76px, 18vw, 104px); border-radius: 50%; background: #8DC63F; color: #0d2231; font-size: clamp(38px, 9vw, 52px); font-weight: 700; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 14px rgba(141,198,63,0.18);">✓</div>
+        <h2 style="margin: 0; font-size: clamp(34px, 9vw, 60px); line-height: 1.02; font-weight: 700; letter-spacing: -0.035em; text-wrap: balance;">Obrigado, <span style="color: #8DC63F;">{{ firstName }}!</span></h2>
+        <p style="margin: 0; font-size: clamp(17px, 4.4vw, 21px); line-height: 1.45; color: #C7D6E1; text-wrap: pretty;">Seu cadastro está feito e nossa equipe vai entrar em contato. Enquanto isso, acompanhe o SIC de perto:</p>
+        <sc-if value="{{ finalCoupon }}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; align-items: center; gap: 12px; text-align: left; background: rgba(141,198,63,0.12); border: 1px solid rgba(141,198,63,0.4); border-radius: 16px; padding: 12px 18px; font-size: 15px; font-weight: 600; line-height: 1.4;"><span style="color: #8DC63F; font-size: 20px;">★</span>Enviamos o seu cupom para o seu e-mail.</div>
+        </sc-if>
+        <div style="width: 100%; display: flex; flex-direction: column; gap: 12px; margin-top: 4px;">
+          <a href="https://www.instagram.com/sistemasic/" target="_blank" rel="noopener" style="min-height: 60px; display: flex; align-items: center; justify-content: center; gap: 12px; background: transparent; color: #ffffff; border: 2px solid rgba(255,255,255,0.45); border-radius: 999px; padding: 0 28px; font-size: 18px; font-weight: 700; text-decoration: none;"><img src="assets/email/icon-instagram.png" alt="" style="width: 22px; height: 22px;">Siga no Instagram</a>
+          <a href="https://sic.coop.br/" target="_blank" rel="noopener" style="min-height: 60px; display: flex; align-items: center; justify-content: center; gap: 12px; background: #8DC63F; color: #0d2231; border-radius: 999px; padding: 0 28px; font-size: 18px; font-weight: 700; text-decoration: none; box-shadow: 0 16px 40px rgba(141,198,63,0.25);"><img src="assets/email/icon-site.png" alt="" style="width: 22px; height: 22px;">Conheça o site</a>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
 
   <sc-if value="{{ isInvite }}" hint-placeholder-val="{{ false }}">
     <div data-screen-label="Convite raspadinha" style="min-height: 100vh; min-height: 100dvh; position: relative; display: flex; align-items: center; justify-content: center; padding: clamp(24px, 5vw, 40px); box-sizing: border-box; text-align: center;">
@@ -914,7 +933,12 @@ class Component extends DCLogic {
       revealNow: () => this.doReveal(),
       panelOpen: this.state.panelOpen,
       openPanel: () => this.setState(s => ({ panelOpen: true, countdown: Math.max(s.countdown, 30) })),
-      finishGame: () => this.reset(),
+      finishGame: () => {
+        if (!this.personal()) return this.reset(); // totem volta ao início para o próximo visitante
+        const name = this.state.playerName, g = this.G() && this.state.gameId ? this.G().game(this.state.gameId) : null;
+        this.reset();
+        this.setState({ screen: 'final', playerName: name, finalCoupon: !!(g && g.couponCode) });
+      },
       operator: this.state.operator, loginName: this.state.loginName, loginPin: this.state.loginPin, loginErr: this.state.loginErr, hasLoginErr: !!this.state.loginErr,
       onLoginName: e => this.setState({ loginName: e.target.value, loginErr: '' }),
       onLoginPin: e => this.setState({ loginPin: e.target.value.replace(/\D/g, '').slice(0, 8), loginErr: '' }),
@@ -925,7 +949,7 @@ class Component extends DCLogic {
       search, onSearch: e => this.setState({ search: e.target.value, redeemMsg: null }),
       hasRedeemMsg: !!redeemMsg, redeemMsgText: redeemMsg ? redeemMsg.text : '', redeemMsgBg: redeemMsg && redeemMsg.ok ? '#EDF6E1' : '#FBEDEA', redeemMsgFg: redeemMsg && redeemMsg.ok ? '#3B6E0F' : '#9E3423',
       exportXlsx: () => this.exportXlsx(),
-      isWelcome: screen === 'welcome', isForm: screen === 'form', isDone: screen === 'done', isAdmin: screen === 'admin',
+      isWelcome: screen === 'welcome', isForm: screen === 'form', isDone: screen === 'done', isAdmin: screen === 'admin', isFinal: screen === 'final', finalCoupon: !!this.state.finalCoupon,
       s0: step === 0, s1: step === 1, s2: step === 2, s3: step === 3, s4: step === 4, s5: step === 5, s6: step === 6, s7: step === 7, s8: step === 8,
       showAdmin: (this.props.mostrarLeads ?? true) && !this.personal(),
       progOrder: phone ? 9 : 0, showDots: !phone, showMiniMap: !phone, ufDir: phone ? 'row' : 'column', ufAlign: phone ? 'center' : 'stretch',
